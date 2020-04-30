@@ -1,0 +1,48 @@
+{
+    "builders": [
+        {
+            "vm_name": "ubuntu-amd64.qcow2",
+            "disk_size": 5120,
+
+            "type": "qemu",
+            "output_directory": "build",
+
+            "iso_url": "http://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-amd64.img",
+            "iso_checksum_url": "https://cloud-images.ubuntu.com/releases/focal/release/SHA256SUMS",
+            "iso_checksum_type": "sha256",
+
+            "disk_image": true,
+            "disk_interface": "virtio-scsi",
+            "disk_discard": "unmap",
+
+            "ssh_username": "manage",
+            "ssh_password": "password",
+
+            "qemuargs": [
+                ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=packer;seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"]
+            ],
+            "http_directory": "cloud-init",
+            "use_default_display": true
+        }
+    ],
+    "provisioners": [
+        {
+            "type": "shell",
+            "inline": ["mkdir /tmp/packer-files"]
+        },
+        {
+            "type": "file",
+            "source": "./files/",
+            "destination": "/tmp/packer-files/"
+        },
+        {
+            "type": "shell",
+            "scripts": [
+                "./scripts/install-packages.sh",
+                "./scripts/install-gha-runner.sh",
+
+                "./scripts/finalize.sh"
+            ]
+        }
+    ]
+}

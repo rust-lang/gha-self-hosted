@@ -1,0 +1,20 @@
+#cloud-config
+package_update: false
+ssh_pwauth: true
+
+users:
+  - name: manage
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    lock_passwd: false
+    shell: /bin/bash
+
+    # Password: password
+    # The hash is generated with the following command:
+    #
+    #    mkpasswd --method=SHA-512 --rounds=4096
+    #
+    passwd: $6$rounds=4096$0PrPeCPXlp.crF$P6SA0aV1jUwFxByJu0702fMs9SwXMub0LbGfCdYv8suao96jnlXcSZ3oPewMs0fgMui9.8O.GRKFh80xUosJU0
+
+apt:
+  preserve_sources_list: true
