@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import pathlib
+import random
 import shutil
 import subprocess
 import sys
+import telnetlib
 import tempfile
 
 
 DISK_SIZE = "20G"
+
+MONITORING_PORT_RANGE = (50000, 55000)
 
 
 class VM:
@@ -21,6 +26,7 @@ class VM:
         self._path_env = self._path / "env.iso"
 
         self._process = None
+        self._monitoring_port = random.randint(*MONITORING_PORT_RANGE)
 
         self._copy_base_image()
         self._create_environment_cd()
@@ -55,9 +61,13 @@ class VM:
 
         shutil.rmtree(str(tempdir))
 
-    def start(self):
+    def run(self):
         if self._process is not None:
             raise RuntimeError("this VM was already started")
+
+        def preexec_fn():
+            # Don't forward signals to QEMU
+            os.setpgrp()
 
         self._process = subprocess.Popen([
             "qemu-system-x86_64",
@@ -68,8 +78,33 @@ class VM:
             "-cdrom", str(self._path_env),
             "-net", "nic,model=virtio",
             "-net", "user,hostfwd=tcp::2222-:22",
-        ])
-        self._process.wait()
+
+            # The monitoring port is used by the shutdown() method to send the
+            # shutdown signal to the QEMU VM, instead of killing it.
+            "-monitor", "telnet:127.0.0.1:" + str(self._monitoring_port) + ",server,nowait",
+        ], preexec_fn=preexec_fn)
+
+        try:
+            self._process.wait()
+        except KeyboardInterrupt:
+            self.shutdown()
+
+        # Shutdown signal was successful, wait for clean shutdown
+        if self._process is not None:
+            self._process.wait()
+
+    def shutdown(self):
+        if self._process is None:
+            raise RuntimeError("can't shutdown a stopped VM")
+
+        try:
+            telnet = telnetlib.Telnet("127.0.0.1", self._monitoring_port)
+            telnet.write("system_powerdown\n".encode("ascii"))
+        except:
+            self.kill()
+            return
+
+        print("==> sent shutdown signal to the VM")
 
     def kill(self):
         if self._process is None:
@@ -92,10 +127,7 @@ def run(env_name):
     }
 
     vm = VM(envs[env_name]["image"], env)
-    try:
-        vm.start()
-    except KeyboardInterrupt:
-        vm.kill()
+    vm.run()
     vm.cleanup()
 
 
