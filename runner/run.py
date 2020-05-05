@@ -117,16 +117,25 @@ class VM:
         shutil.rmtree(str(self._path))
 
 
-def run(env_name):
-    with open("environments.json") as f:
-        envs = json.load(f)
+def run(instance_name):
+    with open("instances.json") as f:
+        instances = json.load(f)
+
+    instance = None
+    for candidate in instances:
+        if candidate["name"] == instance_name:
+            instance = candidate
+            break
+    else:
+        print(f"error: instance not found: {instance_name}", f=sys.stderr)
+        return
 
     env = {
-        "name": env_name,
-        "config": envs[env_name]["config"],
+        "name": instance["name"],
+        "config": instance["config"],
     }
 
-    vm = VM(envs[env_name]["image"], env)
+    vm = VM(instance["image"], env)
     vm.run()
     vm.cleanup()
 

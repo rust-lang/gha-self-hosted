@@ -1,9 +1,0 @@
-{
-    "RUNNER_NAME": {
-        "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
-        "config": {
-            "repo": "ORGANIZATION/REPOSITORY",
-            "token": "ACTIONS_TOKEN"
-        }
-    }
-}
