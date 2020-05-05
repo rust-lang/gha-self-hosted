@@ -46,7 +46,7 @@ class VM:
 
     def _create_environment_cd(self):
         tempdir = pathlib.Path(tempfile.mkdtemp())
-        envjson = tempdir / "environment.json"
+        envjson = tempdir / "instance.json"
 
         with envjson.open("w") as f:
             json.dump(self._env, f)

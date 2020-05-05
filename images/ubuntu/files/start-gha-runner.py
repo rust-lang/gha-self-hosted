@@ -10,7 +10,7 @@ temp = tempfile.mkdtemp()
 subprocess.run(["sudo", "mount", "-o", "ro", "/dev/cdrom", temp], check=True)
 
 # Load the environment from it
-with open(temp + "/environment.json") as f:
+with open(temp + "/instance.json") as f:
     env = json.load(f)
 
 # Eject the CD containing the environment
