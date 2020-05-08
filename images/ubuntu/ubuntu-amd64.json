@@ -41,6 +41,7 @@
                 "./scripts/install-packages.sh",
                 "./scripts/install-gha-runner.sh",
 
+                "./scripts/setup-ssh.sh",
                 "./scripts/finalize.sh"
             ]
         }

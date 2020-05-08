@@ -1,0 +1,10 @@
+[Unit]
+Description=Regenerate SSH host keys
+Before=ssh.service
+
+[Service]
+ExecStart=/usr/local/bin/regenerate-ssh-host-keys
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target
