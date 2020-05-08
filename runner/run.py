@@ -13,14 +13,21 @@ import threading
 import time
 
 
+# Size of the QEMU disks.
 DISK_SIZE = "20G"
 
+# Range of ports where QMP could be bound.
 QMP_PORT_RANGE = (50000, 55000)
+
+# How many seconds to wait after a graceful shutdown signal before killing the
+# virtual machine.
+GRACEFUL_SHUTDOWN_TIMEOUT = 60
 
 
 class VM:
-    def __init__(self, base, env):
-        self._base = base
+    def __init__(self, instance, env):
+        self._base = instance["image"]
+        self._vm_timeout = instance["timeout-seconds"]
         self._env = env
 
         self._path = pathlib.Path(tempfile.mkdtemp())
@@ -108,6 +115,7 @@ class VM:
         ], preexec_fn=preexec_fn)
 
         TrayEjectorThread(self._qmp_tray_ejector_port).start()
+        Timer("vm-timeout", self.shutdown, self._vm_timeout).start()
 
         try:
             self._process.wait()
@@ -139,6 +147,8 @@ class VM:
 
         print("==> sent shutdown signal to the VM")
 
+        Timer("graceful-shutdown-timeout", self.kill, GRACEFUL_SHUTDOWN_TIMEOUT).start()
+
     def kill(self):
         if self._process is None:
             raise RuntimeError("can't kill a stopped VM")
@@ -158,7 +168,7 @@ class VM:
 # the virtual machine.
 class TrayEjectorThread(threading.Thread):
     def __init__(self, qmp_port):
-        super().__init__(name="tray-ejector")
+        super().__init__(name="tray-ejector", daemon=True)
         self._qmp_port = qmp_port
 
     def run(self):
@@ -182,6 +192,23 @@ class TrayEjectorThread(threading.Thread):
             # The connection will be closed when the VM shuts down. We don't
             # care if it happens.
             pass
+
+
+# Simple thread that executes a function after a timeout
+class Timer(threading.Thread):
+    def __init__(self, name, callback, timeout):
+        super().__init__(name=name, daemon=True)
+
+        self._callback = callback
+        self._timeout = timeout
+
+    def run(self):
+        # The sleep is done in a loop to handle spurious wakeups
+        started_at = time.time()
+        while time.time() < started_at + self._timeout:
+            time.sleep(self._timeout - (time.time() - started_at))
+
+        self._callback()
 
 
 # QMP (QEMU Machine Protocol) is a way to control VMs spawned with QEMU, and
@@ -256,7 +283,7 @@ def run(instance_name):
         "config": instance["config"],
     }
 
-    vm = VM(instance["image"], env)
+    vm = VM(instance, env)
     vm.run()
     vm.cleanup()
 

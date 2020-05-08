@@ -16,6 +16,7 @@ contains a list of instance objects, each with the following keypairs:
 
 * **name**: name of the instance.
 * **image**: path to the QCOW2 file of the base image.
+* **timeout-seconds**: number of seconds after the VM is shut down.
 * **config**: arbitrary object containing instance-specific configuration. This
   data will be available inside the VM, and can be used by the base image to
   configure itself. Documentation on how to access it inside the VM is
@@ -28,6 +29,7 @@ An example of such file is:
     {
         "name": "vm-1",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "timeout-seconds": 14400,
         "config": {
             "repo": "rust-lang-ci/rust",
             "token": "FOOBAR"
@@ -36,6 +38,7 @@ An example of such file is:
     {
         "name": "vm-1",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "timeout-seconds": 14400,
         "config": {
             "repo": "rust-lang-ci/rust",
             "token": "FOOBAR"
