@@ -107,8 +107,11 @@ class VM:
             self.shutdown()
 
         # Shutdown signal was successful, wait for clean shutdown
-        if self._process is not None:
-            self._process.wait()
+        try:
+            if self._process is not None:
+                self._process.wait()
+        except KeyboardInterrupt:
+            self.kill()
 
     def shutdown(self):
         if self._process is None:
