@@ -275,8 +275,8 @@ def run(instance_name):
             instance = candidate
             break
     else:
-        print(f"error: instance not found: {instance_name}", f=sys.stderr)
-        return
+        print(f"error: instance not found: {instance_name}", file=sys.stderr)
+        exit(1)
 
     env = {
         "name": instance["name"],
@@ -289,4 +289,8 @@ def run(instance_name):
 
 
 if __name__ == "__main__":
-    run(sys.argv[1])
+    if len(sys.argv) == 2:
+        run(sys.argv[1])
+    else:
+        print(f"usage: {sys.argv[0]} <instance-name>", file=sys.stderr)
+        exit(1)
