@@ -1,4 +1,4 @@
-# Ephemeral VMs runner
+# Ephemeral VMs executor
 
 This directory contains the Python script used to spawn ephemeral VMs for the
 Rust CI. The script starts VMs using QEMU, and is designed to work with VM
