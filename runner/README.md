@@ -17,6 +17,8 @@ contains a list of instance objects, each with the following keypairs:
 * **name**: name of the instance.
 * **image**: path to the QCOW2 file of the base image.
 * **timeout-seconds**: number of seconds after the VM is shut down.
+* **ssh-port**: port number to assign to the VM's SSH server. Documentation on
+  how to log into the VM with SSH is available below.
 * **config**: arbitrary object containing instance-specific configuration. This
   data will be available inside the VM, and can be used by the base image to
   configure itself. Documentation on how to access it inside the VM is
@@ -30,6 +32,7 @@ An example of such file is:
         "name": "vm-1",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
         "timeout-seconds": 14400,
+        "ssh-port": 2201,
         "config": {
             "repo": "rust-lang-ci/rust",
             "token": "FOOBAR"
@@ -39,6 +42,7 @@ An example of such file is:
         "name": "vm-1",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
         "timeout-seconds": 14400,
+        "ssh-port": 2202,
         "config": {
             "repo": "rust-lang-ci/rust",
             "token": "FOOBAR"
@@ -58,6 +62,21 @@ the `instances.json` file:
 
 The command will start an ephemeral copy of the VM and then delete it once the
 VM shuts down.
+
+## Logging into the instance
+
+The script allows you to connect to the spawned VM through SSH, through the
+`ssh-port` defined in the instance configuration. You can connect by running:
+
+```
+ssh -p <ssh-port> manage@localhost
+```
+
+The password for the `manage` user in our VMs is `password`. The SSH server
+takes a while to start up, so you might have to wait before being able to log
+in. Keep in mind that our VM images regenerate the SSH host keys every time
+they boot, so you'll likely get host key mismatch errors when you try to
+connect.
 
 ## Reading the instance configuration inside the VM
 
