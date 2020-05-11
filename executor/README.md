@@ -16,6 +16,9 @@ contains a list of instance objects, each with the following keypairs:
 
 * **name**: name of the instance.
 * **image**: path to the QCOW2 file of the base image.
+* **cpu-cores**: amount of CPU cores to allocate to the VM.
+* **ram**: amount of RAM to allocate to the VM.
+* **root-disk**: amount of disk space to allocate to the VM.
 * **timeout-seconds**: number of seconds after the VM is shut down.
 * **ssh-port**: port number to assign to the VM's SSH server. Documentation on
   how to log into the VM with SSH is available below.
@@ -31,6 +34,9 @@ An example of such file is:
     {
         "name": "vm-1",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "cpu-cores": 4,
+        "ram": "4G",
+        "root-disk": "80G",
         "timeout-seconds": 14400,
         "ssh-port": 2201,
         "config": {
@@ -41,6 +47,9 @@ An example of such file is:
     {
         "name": "vm-1",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "cpu-cores": 2,
+        "ram": "2G",
+        "root-disk": "20G",
         "timeout-seconds": 14400,
         "ssh-port": 2202,
         "config": {
