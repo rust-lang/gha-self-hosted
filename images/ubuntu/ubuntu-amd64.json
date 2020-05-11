@@ -42,6 +42,7 @@
                 "./scripts/install-gha-runner.sh",
 
                 "./scripts/setup-ssh.sh",
+                "./scripts/setup-disk-resize.sh",
                 "./scripts/finalize.sh"
             ]
         }

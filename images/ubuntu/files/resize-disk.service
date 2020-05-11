@@ -1,0 +1,9 @@
+[Unit]
+Description=Regenerate SSH host keys
+
+[Service]
+ExecStart=/usr/local/bin/resize-disk
+Type=oneshot
+
+[Install]
+WantedBy=multi-user.target
