@@ -4,7 +4,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-AGENT_VERSION="2.262.0-rust.1"
+AGENT_VERSION="2.262.0-rust2"
 AGENT_PLATFORM="linux-x64"
 AGENT_REPO="rust-lang/gha-runner"
 
