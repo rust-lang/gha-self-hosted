@@ -22,6 +22,25 @@ QMP_PORT_RANGE = (50000, 55000)
 # virtual machine.
 GRACEFUL_SHUTDOWN_TIMEOUT = 60
 
+# Architecture-specific QEMU flags and BIOS blob URL.
+QEMU_ARCH = {
+    "x86_64": {
+        "flags": [
+            # Standard x86_64 machine with hardware acceleration.
+            "-machine", "pc,accel=kvm",
+        ],
+    },
+    "aarch64": {
+        "flags": [
+            # Virtual AArch64 machine with hardware acceleration.
+            "-machine", "virt,gic_version=3,accel=kvm",
+            # Use the host's CPU variant.
+            "-cpu", "host",
+        ],
+        "bios": "https://releases.linaro.org/components/kernel/uefi-linaro/latest/release/qemu64/QEMU_EFI.fd",
+    },
+}
+
 
 class VM:
     def __init__(self, instance, env):
@@ -32,6 +51,10 @@ class VM:
         self._ram = instance["ram"]
         self._disk = instance["root-disk"]
         self._env = env
+
+        self._arch = instance["arch"]
+        if self._arch not in QEMU_ARCH:
+            raise RuntimeError(f"unsupported architecture: {self._arch}")
 
         self._path = pathlib.Path(tempfile.mkdtemp())
         self._path_root = self._path / "root.qcow2"
@@ -96,11 +119,8 @@ class VM:
             # Don't forward signals to QEMU
             os.setpgrp()
 
-        print("==> starting the virtual machine")
-        self._process = subprocess.Popen([
-            "qemu-system-x86_64",
-            # Enable hardware acceleration.
-            "-enable-kvm",
+        cmd = [
+            f"qemu-system-{self._arch}",
             # Reserved RAM for the virtual machine.
             "-m", str(self._ram),
             # Allocated cores for the virtual machine.
@@ -122,7 +142,15 @@ class VM:
             # This QMP port is used by the TrayEjector thread to eject the
             # CD-ROM as soon as the guest VM opens the tray.
             "-qmp", "telnet:127.0.0.1:" + str(self._qmp_tray_ejector_port) + ",server,nowait",
-        ], preexec_fn=preexec_fn)
+        ]
+        cmd += QEMU_ARCH[self._arch]["flags"]
+
+        if "bios" in QEMU_ARCH[self._arch]:
+            path = self._fetch_bios(QEMU_ARCH[self._arch]["bios"])
+            cmd += ["-bios", path]
+
+        print("==> starting the virtual machine")
+        self._process = subprocess.Popen(cmd, preexec_fn=preexec_fn)
 
         TrayEjectorThread(self._qmp_tray_ejector_port).start()
         Timer("vm-timeout", self.shutdown, self._vm_timeout).start()
@@ -138,6 +166,10 @@ class VM:
                 self._process.wait()
         except KeyboardInterrupt:
             self.kill()
+
+    def _fetch_bios(self, url):
+        print("==> fetching the bios blob")
+        return urllib.request.urlretrieve(url)[0]
 
     def shutdown(self):
         if self._process is None:

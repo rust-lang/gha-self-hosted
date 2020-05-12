@@ -14,6 +14,7 @@ make
 The resulting images will be located at:
 
 * Ubuntu 20.04 LTS x86_64: `build/ubuntu-amd64.qcow2`
+* Ubuntu 20.04 LTS AArch64: `build/ubuntu-aarch64.qcow2`
 
 ## Image configuration
 

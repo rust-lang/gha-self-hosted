@@ -16,6 +16,7 @@ contains a list of instance objects, each with the following keypairs:
 
 * **name**: name of the instance.
 * **image**: path to the QCOW2 file of the base image.
+* **arch**: the architecture of the virtual machine (`x86_64` or `aarch64`).
 * **cpu-cores**: amount of CPU cores to allocate to the VM.
 * **ram**: amount of RAM to allocate to the VM.
 * **root-disk**: amount of disk space to allocate to the VM.
@@ -35,6 +36,7 @@ An example of such file is:
     {
         "name": "vm-1",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "arch": "x86_64",
         "cpu-cores": 4,
         "ram": "4G",
         "root-disk": "80G",
@@ -47,8 +49,9 @@ An example of such file is:
         }
     },
     {
-        "name": "vm-1",
+        "name": "vm-2",
         "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "arch": "aarch64",
         "cpu-cores": 2,
         "ram": "2G",
         "root-disk": "20G",

@@ -5,8 +5,20 @@ set -euo pipefail
 IFS=$'\n\t'
 
 AGENT_VERSION="2.262.0-rust2"
-AGENT_PLATFORM="linux-x64"
 AGENT_REPO="rust-lang/gha-runner"
+
+case "$(uname -m)" in
+    x86_64)
+        AGENT_PLATFORM="linux-x64"
+        ;;
+    aarch64)
+        AGENT_PLATFORM="linux-arm64"
+        ;;
+    *)
+        echo "error: unsupported platform: $(uname -m)"
+        exit 1
+        ;;
+esac
 
 echo "adding the gha user..."
 sudo adduser gha --home /gha --disabled-password

@@ -1,6 +1,7 @@
 {
     "builders": [
         {
+            "name": "ubuntu-amd64",
             "vm_name": "ubuntu-amd64.qcow2",
             "disk_size": 5120,
 
@@ -19,6 +20,35 @@
             "ssh_password": "password",
 
             "qemuargs": [
+                ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=packer;seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"]
+            ],
+            "http_directory": "cloud-init",
+            "use_default_display": true
+        },
+        {
+            "name": "ubuntu-aarch64",
+            "vm_name": "ubuntu-aarch64.qcow2",
+            "disk_size": 5120,
+
+            "type": "qemu",
+            "output_directory": "build",
+
+            "iso_url": "http://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-arm64.img",
+            "iso_checksum_url": "https://cloud-images.ubuntu.com/releases/focal/release/SHA256SUMS",
+            "iso_checksum_type": "sha256",
+
+            "disk_image": true,
+            "disk_interface": "virtio-scsi",
+            "disk_discard": "unmap",
+
+            "ssh_username": "manage",
+            "ssh_password": "password",
+
+            "qemu_binary": "qemu-system-aarch64",
+            "machine_type": "virt,gic_version=3",
+            "qemuargs": [
+                ["-cpu", "host"],
+                ["-bios", "QEMU_EFI.fd"],
                 ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=packer;seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"]
             ],
             "http_directory": "cloud-init",
