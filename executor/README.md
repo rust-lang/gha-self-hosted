@@ -92,3 +92,8 @@ connect.
 The script will mount a virtual CD-ROM inside each virtual machine, containing
 a file called `instance.json`. The file will contain a JSON document with a
 copy of the `name` and `config` keys from the host's `instances.json`.
+
+It's possible for the VM to eject the virtual CD-ROM once it's done reading its
+contents, for example to prevent future untrusted processes inside the VM from
+reading it. Once the CD-ROM tray is opened, the script will automatically
+remove the CD-ROM.
