@@ -43,7 +43,7 @@ An example of such file is:
         "config": {
             "repo": "rust-lang-ci/rust",
             "token": "${{ gha-install-token:rust-lang-ci/rust }}",
-            "white-listed-event": "push"
+            "whitelisted-event": "push"
         }
     },
     {
@@ -57,7 +57,7 @@ An example of such file is:
         "config": {
             "repo": "rust-lang-ci/rust",
             "token": "${{ gha-install-token:rust-lang-ci/rust }}",
-            "white-listed-event": "push"
+            "whitelisted-event": "push"
         }
     }
 ]
