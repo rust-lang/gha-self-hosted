@@ -42,7 +42,8 @@ An example of such file is:
         "ssh-port": 2201,
         "config": {
             "repo": "rust-lang-ci/rust",
-            "token": "${{ gha-install-token:rust-lang-ci/rust }}"
+            "token": "${{ gha-install-token:rust-lang-ci/rust }}",
+            "white-listed-event": "push"
         }
     },
     {
@@ -55,7 +56,8 @@ An example of such file is:
         "ssh-port": 2202,
         "config": {
             "repo": "rust-lang-ci/rust",
-            "token": "${{ gha-install-token:rust-lang-ci/rust }}"
+            "token": "${{ gha-install-token:rust-lang-ci/rust }}",
+            "white-listed-event": "push"
         }
     }
 ]
