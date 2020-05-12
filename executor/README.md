@@ -21,11 +21,12 @@ contains a list of instance objects, each with the following keypairs:
 * **root-disk**: amount of disk space to allocate to the VM.
 * **timeout-seconds**: number of seconds after the VM is shut down.
 * **ssh-port**: port number to assign to the VM's SSH server. Documentation on
-  how to log into the VM with SSH is available below.
+  how to log into the VM is available below.
 * **config**: arbitrary object containing instance-specific configuration. This
   data will be available inside the VM, and can be used by the base image to
-  configure itself. Documentation on how to access it inside the VM is
-  available below.
+  configure itself. A configuration pre-processor is available, allowing to
+  fetch some configuration values at startup time. Documentation on how to
+  access the configuration inside the VM is available below.
 
 An example of such file is:
 
@@ -41,7 +42,7 @@ An example of such file is:
         "ssh-port": 2201,
         "config": {
             "repo": "rust-lang-ci/rust",
-            "token": "FOOBAR"
+            "token": "${{ gha-install-token:rust-lang-ci/rust }}"
         }
     },
     {
@@ -54,11 +55,29 @@ An example of such file is:
         "ssh-port": 2202,
         "config": {
             "repo": "rust-lang-ci/rust",
-            "token": "FOOBAR"
+            "token": "${{ gha-install-token:rust-lang-ci/rust }}"
         }
     }
 ]
 ```
+
+## Configuration pre-processor
+
+The script allows to fetch some configuration values dynamically right before
+the virtual machine is started. A limited number of functions is available.
+
+### Fetching the GHA installation token
+
+To fetch the GitHub Actions runner installation token for a repository, you can
+set the following value in the config:
+
+```
+${{ gha-install-token:ORGANIZATION/REPOSITORY }}
+```
+
+When this parameter is present, the script will call the GitHub API to fetch a
+new installation token. For that to work the `GITHUB_TOKEN` environment
+variable needs to be set, containing a valid GitHub API token.
 
 ## Starting an instance
 

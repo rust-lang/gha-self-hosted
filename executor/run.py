@@ -4,6 +4,7 @@ import json
 import os
 import pathlib
 import random
+import re
 import shutil
 import subprocess
 import sys
@@ -11,6 +12,7 @@ import telnetlib
 import tempfile
 import threading
 import time
+import urllib.request
 
 
 # Range of ports where QMP could be bound.
@@ -273,6 +275,47 @@ class QMPClient:
         return json.loads(self._conn.read_until(b'\n').decode("utf-8").strip())
 
 
+class ConfigPreprocessor:
+    # This regex matches: ${{ FUNCTION:ARGS }}
+    _VARIABLE_RE = re.compile(r"^\${{ *(?P<function>[a-zA-Z0-9_-]+):(?P<args>[^}]+)}}$")
+
+    def __init__(self, config):
+        self._config = config
+
+    def process(self):
+        for key, value in self._config.items():
+            matches = self._VARIABLE_RE.match(value)
+            if matches is None:
+                continue
+
+            function = matches.group("function").strip()
+            args = matches.group("args").strip()
+
+            if function == "gha-install-token":
+                self._config[key] = self._fetch_gha_install_token(args)
+            else:
+                raise ValueError(f"unknown preprocessor function: {function}")
+
+        return self._config
+
+    def _fetch_gha_install_token(self, repo):
+        try:
+            github_token = os.environ["GITHUB_TOKEN"]
+        except KeyError:
+            raise RuntimeError("missing environment variable GITHUB_TOKEN") from None
+
+        print(f"==> fetching the GHA installation token for {repo}")
+
+        request = urllib.request.Request(f"https://api.github.com/repos/{repo}/actions/runners/registration-token")
+        request.add_header("User-Agent", "https://github.com/rust-lang/gha-self-hosted (infra@rust-lang.org)")
+        request.add_header("Authorization", f"Bearer {github_token}")
+        request.method = "POST"
+
+        response = urllib.request.urlopen(request)
+        payload = json.load(response)
+        return payload["token"]
+
+
 def run(instance_name):
     with open("instances.json") as f:
         instances = json.load(f)
@@ -286,9 +329,10 @@ def run(instance_name):
         print(f"error: instance not found: {instance_name}", file=sys.stderr)
         exit(1)
 
+    config = ConfigPreprocessor(instance["config"])
     env = {
         "name": instance["name"],
-        "config": instance["config"],
+        "config": config.process(),
     }
 
     vm = VM(instance, env)
