@@ -5,9 +5,11 @@ import os
 import tempfile
 import subprocess
 
+CDROM = "/dev/disk/by-label/instance-configuration"
+
 # Mount the virtual CD containing the environment
 temp = tempfile.mkdtemp()
-subprocess.run(["sudo", "mount", "-o", "ro", "/dev/cdrom", temp], check=True)
+subprocess.run(["sudo", "mount", "-o", "ro", CDROM, temp], check=True)
 
 # Load the environment from it
 with open(temp + "/instance.json") as f:
@@ -15,7 +17,7 @@ with open(temp + "/instance.json") as f:
 
 # Eject the CD containing the environment
 subprocess.run(["sudo", "umount", temp], check=True)
-subprocess.run(["sudo", "eject", "/dev/cdrom"], check=True)
+subprocess.run(["sudo", "eject", CDROM], check=True)
 os.rmdir(temp)
 
 # Configure the GitHub Actions runner
