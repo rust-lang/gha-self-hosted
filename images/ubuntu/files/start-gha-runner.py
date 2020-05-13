@@ -17,7 +17,10 @@ with open(temp + "/instance.json") as f:
 
 # Eject the CD containing the environment
 subprocess.run(["sudo", "umount", temp], check=True)
-subprocess.run(["sudo", "eject", CDROM], check=True)
+try:
+    subprocess.run(["sudo", "eject", CDROM], check=True)
+except subprocess.CalledProcessError:
+    print("warning: failed to eject the CD-ROM")
 os.rmdir(temp)
 
 # Configure the GitHub Actions runner
