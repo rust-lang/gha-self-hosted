@@ -36,3 +36,14 @@ sudo cp /tmp/packer-files/start-gha-runner.py /usr/local/bin/start-gha-runner
 sudo chmod +x /usr/local/bin/start-gha-runner
 sudo systemctl daemon-reload
 sudo systemctl enable gha-runner.service # Will start at the next boot.
+
+echo "adding runner information..."
+cat > /tmp/setup_info << EOF
+[
+    {
+        "group": "Image details",
+        "detail": "rust-lang/gha-self-hosted commit: ${GIT_SHA}\nImage build time: $(date --iso-8601=seconds --utc)"
+    }
+]
+EOF
+sudo -u gha cp /tmp/setup_info /gha/.setup_info

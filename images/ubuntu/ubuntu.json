@@ -10,6 +10,7 @@
         "ssh_user": "manage",
         "ssh_password": "password",
 
+        "env_git_sha": "{{ env `GIT_SHA` }}",
         "env_qemu_accelerator": "{{ env `QEMU_ACCELERATOR` }}",
         "env_aarch64_machine": "{{ env `AARCH64_MACHINE` }}",
         "env_aarch64_cpu": "{{ env `AARCH64_CPU` }}",
@@ -36,6 +37,9 @@
                 "./scripts/setup-disk-resize.sh",
                 "./scripts/setup-grub.sh",
                 "./scripts/finalize.sh"
+            ],
+            "environment_vars": [
+                "GIT_SHA={{ user `env_git_sha` }}"
             ]
         }
     ],
