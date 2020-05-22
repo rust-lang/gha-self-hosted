@@ -35,7 +35,7 @@ An example of such file is:
 [
     {
         "name": "vm-1",
-        "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "image": "../images/ubuntu/build/x86_64/rootfs.qcow2",
         "arch": "x86_64",
         "cpu-cores": 4,
         "ram": "4G",
@@ -50,7 +50,7 @@ An example of such file is:
     },
     {
         "name": "vm-2",
-        "image": "../images/ubuntu/build/ubuntu-amd64.qcow2",
+        "image": "../images/ubuntu/build/aarch64/rootfs.qcow2",
         "arch": "aarch64",
         "cpu-cores": 2,
         "ram": "2G",

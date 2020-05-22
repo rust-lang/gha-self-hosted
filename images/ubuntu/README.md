@@ -5,16 +5,29 @@ Rust's self-hosted CI. The images are specific to our environment and use [a
 custom fork of the GitHub Actions runner][rust-lang/gha-runner]: it's not
 recommended to use them outside our environment.
 
-The images can be built with [Packer] and QEMU by running:
+If you're on a x86_64 or AArch64 machine you can build the image for your host
+architecture by running:
 
 ```
 make
 ```
 
+You can also explicitly build the image for a single architecture:
+
+```
+make x86_64-host
+make aarch64-host
+
+make x86_64-emul
+make aarch64-emul
+```
+
+> **Warning**: building emulated AArch64 images is not currently working.
+
 The resulting images will be located at:
 
-* Ubuntu 20.04 LTS x86_64: `build/ubuntu-amd64.qcow2`
-* Ubuntu 20.04 LTS AArch64: `build/ubuntu-aarch64.qcow2`
+* Ubuntu 20.04 LTS x86_64: `build/x86_64/rootfs.qcow2`
+* Ubuntu 20.04 LTS AArch64: `build/aarch64/rootfs.qcow2`
 
 ## Image configuration
 

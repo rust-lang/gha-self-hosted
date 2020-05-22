@@ -1,4 +1,2 @@
-/images/*/packer_cache
 /images/*/build
-/images/ubuntu/QEMU_EFI.fd
 /executor/instances.json
