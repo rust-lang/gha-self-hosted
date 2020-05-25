@@ -22,6 +22,7 @@ esac
 
 echo "adding the gha user..."
 sudo adduser gha --home /gha --disabled-password
+sudo adduser gha docker
 echo "gha ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/gha-nopasswd
 
 echo "downloading and installing the runner..."
