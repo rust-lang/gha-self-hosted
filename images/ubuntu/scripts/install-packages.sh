@@ -9,6 +9,9 @@ PACKAGES=(
 
     # Needed by rustc's CI
     docker.io
+    jq
+    python-is-python2
+    python3-pip
 )
 
 export DEBIAN_FRONTEND=noninteractive
