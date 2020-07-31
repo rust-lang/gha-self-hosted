@@ -4,7 +4,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-AGENT_VERSION="2.267.1-rust1"
+AGENT_VERSION="2.272.0-rust1"
 AGENT_REPO="rust-lang/gha-runner"
 
 case "$(uname -m)" in
