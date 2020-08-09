@@ -73,7 +73,7 @@ class VM:
 
         self._path.mkdir(exist_ok=True)
 
-        print("==> creating the disk image")
+        log("creating the disk image")
         subprocess.run([
             "qemu-img", "create",
             # Path of the base image.
@@ -94,7 +94,7 @@ class VM:
         with envjson.open("w") as f:
             json.dump(self._env, f)
 
-        print("==> creating the virtual CD-ROM with the instance configuration")
+        log("creating the virtual CD-ROM with the instance configuration")
         subprocess.run([
             "genisoimage",
             "-output", str(self._path_cdrom.resolve()),
@@ -149,7 +149,7 @@ class VM:
             path = self._fetch_bios(QEMU_ARCH[self._arch]["bios"])
             cmd += ["-bios", path]
 
-        print("==> starting the virtual machine")
+        log("starting the virtual machine")
         self._process = subprocess.Popen(cmd, preexec_fn=preexec_fn)
 
         TrayEjectorThread(self._qmp_tray_ejector_port).start()
@@ -168,7 +168,7 @@ class VM:
             self.kill()
 
     def _fetch_bios(self, url):
-        print("==> fetching the bios blob")
+        log("fetching the bios blob")
         return urllib.request.urlretrieve(url)[0]
 
     def shutdown(self):
@@ -183,11 +183,11 @@ class VM:
             qmp = QMPClient(self._qmp_shutdown_port)
             qmp.shutdown_vm()
         except Exception as e:
-            print("==> failed to gracefully shutdown the VM:", e)
+            print("failed to gracefully shutdown the VM:", e)
             self.kill()
             return
 
-        print("==> sent shutdown signal to the VM")
+        log("sent shutdown signal to the VM")
 
         Timer("graceful-shutdown-timeout", self.kill, GRACEFUL_SHUTDOWN_TIMEOUT).start()
 
@@ -198,7 +198,7 @@ class VM:
         self._process.kill()
         self._process = None
 
-        print("==> killed the virtual machine")
+        log("killed the virtual machine")
 
     def cleanup(self):
         shutil.rmtree(str(self._path))
@@ -229,7 +229,7 @@ class TrayEjectorThread(threading.Thread):
                 if not data["tray-open"]:
                     continue
                 qmp.eject(data["device"])
-                print("==> ejected CD-ROM (device: %s)" % data["device"])
+                log("ejected CD-ROM (device: %s)" % data["device"])
         except EOFError:
             # The connection will be closed when the VM shuts down. We don't
             # care if it happens.
@@ -336,7 +336,7 @@ class ConfigPreprocessor:
         except KeyError:
             raise RuntimeError("missing environment variable GITHUB_TOKEN") from None
 
-        print(f"==> fetching the GHA installation token for {repo}")
+        log(f"fetching the GHA installation token for {repo}")
 
         request = urllib.request.Request(f"https://api.github.com/repos/{repo}/actions/runners/registration-token")
         request.add_header("User-Agent", "https://github.com/rust-lang/gha-self-hosted (infra@rust-lang.org)")
@@ -371,6 +371,10 @@ def run(instance_name):
     vm.run()
     vm.cleanup()
 
+
+def log(*args, **kwargs):
+    print("==>", *args, **kwargs)
+    sys.stdout.flush()
 
 if __name__ == "__main__":
     if len(sys.argv) == 2:
