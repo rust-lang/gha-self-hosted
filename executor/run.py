@@ -22,6 +22,9 @@ QMP_PORT_RANGE = (50000, 55000)
 # virtual machine.
 GRACEFUL_SHUTDOWN_TIMEOUT = 60
 
+# How many seconds should pass between each call to the GitHub API.
+GITHUB_API_POLL_INTERVAL = 15
+
 # Architecture-specific QEMU flags and BIOS blob URL.
 QEMU_ARCH = {
     "x86_64": {
@@ -153,7 +156,16 @@ class VM:
         self._process = subprocess.Popen(cmd, preexec_fn=preexec_fn)
 
         TrayEjectorThread(self._qmp_tray_ejector_port).start()
-        Timer("vm-timeout", self.shutdown, self._vm_timeout).start()
+
+        if "repo" in self._env["config"]:
+            GitHubRunnerStatusWatcher(
+                self._env["config"]["repo"],
+                self._env["name"],
+                GITHUB_API_POLL_INTERVAL,
+                lambda: Timer("vm-timeout", self.shutdown, self._vm_timeout).start(),
+            ).start()
+        else:
+            log("didn't start polling the GitHub API: missing 'repo' in config")
 
         try:
             self._process.wait()
@@ -202,6 +214,34 @@ class VM:
 
     def cleanup(self):
         shutil.rmtree(str(self._path))
+
+
+class GitHubRunnerStatusWatcher(threading.Thread):
+    def __init__(self, repo, runner_name, check_interval, then):
+        super().__init__(name="github-runner-status-watcher", daemon=True)
+
+        self._check_interval = check_interval
+        self._repo = repo
+        self._runner_name = runner_name
+        self._then = then
+
+    def run(self):
+        log("started polling GitHub to detect when the runner started working")
+        while True:
+            runners = self._retrieve_runners()
+            if self._runner_name in runners and runners[self._runner_name]["busy"]:
+                log("the runner started processing a build!")
+                self._then()
+                break
+            time.sleep(self._check_interval)
+
+    def _retrieve_runners(self):
+        result = {}
+        url = f"https://api.github.com/repos/{self._repo}/actions/runners"
+        for response in github_api("GET", url):
+            for runner in response["runners"]:
+                result[runner["name"]] = runner
+        return result
 
 
 # We only want the instance configuration to be available at startup, and not
@@ -335,21 +375,39 @@ class ConfigPreprocessor:
         return self._config
 
     def _fetch_gha_install_token(self, repo):
-        try:
-            github_token = os.environ["GITHUB_TOKEN"]
-        except KeyError:
-            raise RuntimeError("missing environment variable GITHUB_TOKEN") from None
-
         log(f"fetching the GHA installation token for {repo}")
 
-        request = urllib.request.Request(f"https://api.github.com/repos/{repo}/actions/runners/registration-token")
+        res = next(github_api(
+            "POST",
+            f"https://api.github.com/repos/{repo}/actions/runners/registration-token",
+        ))
+        return res["token"]
+
+
+NEXT_LINK_RE = re.compile(r"<([^>]+)>; rel=\"next\"")
+
+def github_api(method, url):
+    try:
+        github_token = os.environ["GITHUB_TOKEN"]
+    except KeyError:
+        raise RuntimeError("missing environment variable GITHUB_TOKEN") from None
+
+    while url is not None:
+        request = urllib.request.Request(url)
         request.add_header("User-Agent", "https://github.com/rust-lang/gha-self-hosted (infra@rust-lang.org)")
-        request.add_header("Authorization", f"Bearer {github_token}")
-        request.method = "POST"
+        request.add_header("Authorization", f"token {github_token}")
+        request.method = method
 
         response = urllib.request.urlopen(request)
-        payload = json.load(response)
-        return payload["token"]
+
+        # Handle pagination of the GitHub API
+        url = None
+        if "Link" in response.headers:
+            captures = NEXT_LINK_RE.search(response.headers["Link"])
+            if captures is not None:
+                url = captures.group(1)
+
+        yield json.load(response)
 
 
 def run(instance_name):
