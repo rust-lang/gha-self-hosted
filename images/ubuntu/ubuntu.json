@@ -36,6 +36,8 @@
                 "./scripts/setup-ssh.sh",
                 "./scripts/setup-disk-resize.sh",
                 "./scripts/setup-grub.sh",
+
+                "./scripts/disable-timers.sh",
                 "./scripts/finalize.sh"
             ],
             "environment_vars": [
