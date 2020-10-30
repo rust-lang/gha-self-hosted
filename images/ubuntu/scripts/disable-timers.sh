@@ -10,4 +10,9 @@ sudo systemctl disable \
     motd-news.timer \
     apt-daily.timer \
     fwupd-refresh.timer \
-    apt-daily-upgrade.timer
+    apt-daily-upgrade.timer \
+    systemd-tmpfiles-clean.timer \
+    logrotate.timer \
+    man-db.timer \
+    e2scrub_all.timer \
+    fstrim.timer
