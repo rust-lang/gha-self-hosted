@@ -6,6 +6,7 @@ import pathlib
 import random
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import telnetlib
@@ -54,6 +55,10 @@ class VM:
         self._ram = instance["ram"]
         self._disk = instance["root-disk"]
         self._env = env
+
+        # Once the GitHub Actions build start, the VM won't reloaad anymore
+        # when a SIGUSR1 is received.
+        self._prevent_reloads = False
 
         self._arch = instance["arch"]
         if self._arch not in QEMU_ARCH:
@@ -162,7 +167,7 @@ class VM:
                 self._env["config"]["repo"],
                 self._env["name"],
                 GITHUB_API_POLL_INTERVAL,
-                lambda: Timer("vm-timeout", self.shutdown, self._vm_timeout).start(),
+                self._gha_build_started,
             ).start()
         else:
             log("didn't start polling the GitHub API: missing 'repo' in config")
@@ -214,6 +219,17 @@ class VM:
 
     def cleanup(self):
         shutil.rmtree(str(self._path))
+
+    def sigusr1_received(self):
+        if self._prevent_reloads:
+            log("did not reload as a build is currently running")
+        else:
+            log("reload signal received, shutting down the VM")
+            self.shutdown()
+
+    def _gha_build_started(self):
+        self._prevent_reloads = True
+        Timer("vm-timeout", self.shutdown, self._vm_timeout).start()
 
 
 class GitHubRunnerStatusWatcher(threading.Thread):
@@ -410,7 +426,15 @@ def github_api(method, url):
         yield json.load(response)
 
 
+signal_vms = []
+def sigusr1_received(sig, frame):
+    for vm in signal_vms:
+        vm.sigusr1_received()
+
+
 def run(instance_name):
+    signal.signal(signal.SIGUSR1, sigusr1_received)
+
     with open("instances.json") as f:
         instances = json.load(f)
 
@@ -430,6 +454,8 @@ def run(instance_name):
     }
 
     vm = VM(instance, env)
+    signal_vms.append(vm)
+
     vm.run()
     vm.cleanup()
 
