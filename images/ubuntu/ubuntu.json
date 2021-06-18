@@ -105,7 +105,7 @@
                 ["-nographic", ""],
                 ["-serial", "pty"],
                 ["-cpu", "{{ user `env_aarch64_cpu` }}"],
-                ["-bios", "build/QEMU_EFI.fd"],
+                ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"],
                 ["-smbios", "type=1,serial=ds=nocloud-net;instance-id={{ user `build_hostname` }};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"]
             ],
             "http_directory": "cloud-init",

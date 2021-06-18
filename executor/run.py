@@ -41,7 +41,8 @@ QEMU_ARCH = {
             # Use the host's CPU variant.
             "-cpu", "host",
         ],
-        "bios": "https://releases.linaro.org/components/kernel/uefi-linaro/latest/release/qemu64/QEMU_EFI.fd",
+        # Installed with `sudo apt-get install qemu-efi-aarch64`
+        "bios": "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd",
     },
 }
 
@@ -154,8 +155,7 @@ class VM:
         cmd += QEMU_ARCH[self._arch]["flags"]
 
         if "bios" in QEMU_ARCH[self._arch]:
-            path = self._fetch_bios(QEMU_ARCH[self._arch]["bios"])
-            cmd += ["-bios", path]
+            cmd += ["-bios", QEMU_ARCH[self._arch]["bios"]]
 
         log("starting the virtual machine")
         self._process = subprocess.Popen(cmd, preexec_fn=preexec_fn)
@@ -183,10 +183,6 @@ class VM:
                 self._process.wait()
         except KeyboardInterrupt:
             self.kill()
-
-    def _fetch_bios(self, url):
-        log("fetching the bios blob")
-        return urllib.request.urlretrieve(url)[0]
 
     def shutdown(self):
         if self._process is None:

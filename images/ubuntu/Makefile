@@ -18,14 +18,10 @@ x86_64-emul:
 	rm -rf build/x86_64
 	$(ENV_EMUL) packer build -only=ubuntu-x86_64 ubuntu.json
 
-aarch64-host: build/QEMU_EFI.fd
+aarch64-host:
 	rm -rf build/aarch64
 	$(ENV_HOST) AARCH64_MACHINE=virt,gic_version=3 AARCH64_CPU=host packer build -only ubuntu-aarch64 ubuntu.json
 
-aarch64-emul: build/QEMU_EFI.fd
+aarch64-emul:
 	rm -rf build/aarch64
 	$(ENV_EMUL) AARCH64_MACHINE=virt AARCH64_CPU=cortex-a57 packer build -only ubuntu-aarch64 ubuntu.json
-
-build/QEMU_EFI.fd:
-	@mkdir -p $(dir $@)
-	curl -Lo $@ https://releases.linaro.org/components/kernel/uefi-linaro/latest/release/qemu64/QEMU_EFI.fd
