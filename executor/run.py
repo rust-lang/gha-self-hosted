@@ -90,6 +90,8 @@ class VM:
             # Use a Copy on Write filesystem, to avoid having to copy the whole
             # base image every time we start a VM.
             "-f", "qcow2",
+            # Explicitly set format of backing file
+            "-F", "qcow2",
             # Path of the destination image.
             str(self._path_root.resolve()),
             # New size of the disk.
