@@ -12,6 +12,9 @@ PACKAGES=(
     jq
     python-is-python2
     python3-pip
+
+    # Needed by install-awscli
+    unzip
 )
 
 export DEBIAN_FRONTEND=noninteractive
