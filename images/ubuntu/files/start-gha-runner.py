@@ -4,6 +4,7 @@ import json
 import os
 import tempfile
 import subprocess
+import uuid
 
 CDROM = "/dev/disk/by-label/instance-configuration"
 
@@ -28,7 +29,7 @@ subprocess.run([
     "./config.sh", "--unattended", "--replace",
     "--url", "https://github.com/" + instance["config"]["repo"],
     "--token", instance["config"]["token"],
-    "--name", instance["name"],
+    "--name", instance["name"] + uuid.uuid4().hex,
     "--ephemeral",
 ], check=True)
 
