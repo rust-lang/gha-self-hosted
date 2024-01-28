@@ -9,6 +9,7 @@ PACKAGES=(
 
     # Needed by rustc's CI
     docker.io
+    docker-buildx
     jq
     python-is-python2
     python3-pip
