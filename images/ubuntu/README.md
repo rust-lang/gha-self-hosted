@@ -56,7 +56,7 @@ SSH access is available via the `manage` user, with the password: `password`.
 
 This directory contains the following files and directories:
 
-* `ubuntu.json`: the Packer manifest for the image, which contains
+* `image.pkr.hcl`: the Packer manifest for the image, which contains
   the list of scripts to call during the build.
 * `scripts/`: bash scripts included by the manifest: Packer will run them in the
   build VM.
