@@ -27,13 +27,6 @@ The resulting images will be located at:
 * Ubuntu 20.04 LTS x86_64: `build/x86_64/rootfs.qcow2`
 * Ubuntu 20.04 LTS AArch64: `build/aarch64/rootfs.qcow2`
 
-Note that to build AArch64 images you need the UEFI blob in your system. You
-can install it on Ubuntu by running:
-
-```
-sudo apt install qemu-efi-aarch64
-```
-
 ## Image configuration
 
 The image accepts the following configuration keys passed by the executor

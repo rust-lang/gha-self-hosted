@@ -91,12 +91,14 @@ source "qemu" "ubuntu-aarch64" {
   iso_checksum = "file:https://cloud-images.ubuntu.com/releases/${local.ubuntu_version}/release/SHA256SUMS"
   iso_url      = "https://cloud-images.ubuntu.com/releases/${local.ubuntu_version}/release/ubuntu-${local.ubuntu_version}-server-cloudimg-arm64.img"
 
+  # On AArch64 the machine won't boot unless we provide the QEMU_EFI.fd file as the firmware.
+  firmware = var.firmware
+
   qemu_binary = "qemu-system-aarch64"
   qemuargs = [
     ["-nographic", ""],
     ["-serial", "pty"],
     ["-cpu", var.emulated ? "cortex-a57" : "host"],
-    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"],
     ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${local.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"],
   ]
 
@@ -129,4 +131,9 @@ variable "emulated" {
 
 variable "git_sha" {
   type = string
+}
+
+variable "firmware" {
+  type    = string
+  default = null
 }
