@@ -7,6 +7,38 @@ packer {
   }
 }
 
+build {
+  sources = ["source.qemu.ubuntu-aarch64", "source.qemu.ubuntu-x86_64"]
+
+  // Copy the support files the scripts rely on.
+  provisioner "shell" {
+    inline = [
+      "mkdir /tmp/packer-files",
+    ]
+  }
+  provisioner "file" {
+    destination = "/tmp/packer-files/"
+    source      = "./files/"
+  }
+
+  // Run all the scripts needed to configure the machine.
+  provisioner "shell" {
+    env = {
+      GIT_SHA = var.git_sha
+    }
+    scripts = [
+      "./scripts/install-packages.sh",
+      "./scripts/install-gha-runner.sh",
+      "./scripts/install-awscli.sh",
+      "./scripts/setup-ssh.sh",
+      "./scripts/setup-disk-resize.sh",
+      "./scripts/setup-grub.sh",
+      "./scripts/disable-timers.sh",
+      "./scripts/finalize.sh",
+    ]
+  }
+}
+
 variable "build_cpus" {
   type    = string
   default = "8"
@@ -32,9 +64,9 @@ variable "env_aarch64_machine" {
   default = "${env("AARCH64_MACHINE")}"
 }
 
-variable "env_git_sha" {
+variable "git_sha" {
   type    = string
-  default = "${env("GIT_SHA")}"
+  default = env("GIT_SHA")
 }
 
 variable "env_qemu_accelerator" {
@@ -113,23 +145,4 @@ source "qemu" "ubuntu-x86_64" {
   ssh_username           = "${var.ssh_user}"
   use_default_display    = true
   vm_name                = "rootfs.qcow2"
-}
-
-build {
-  sources = ["source.qemu.ubuntu-aarch64", "source.qemu.ubuntu-x86_64"]
-
-  provisioner "shell" {
-    inline = ["mkdir /tmp/packer-files"]
-  }
-
-  provisioner "file" {
-    destination = "/tmp/packer-files/"
-    source      = "./files/"
-  }
-
-  provisioner "shell" {
-    environment_vars = ["GIT_SHA=${var.env_git_sha}"]
-    scripts          = ["./scripts/install-packages.sh", "./scripts/install-gha-runner.sh", "./scripts/install-awscli.sh", "./scripts/setup-ssh.sh", "./scripts/setup-disk-resize.sh", "./scripts/setup-grub.sh", "./scripts/disable-timers.sh", "./scripts/finalize.sh"]
-  }
-
 }
