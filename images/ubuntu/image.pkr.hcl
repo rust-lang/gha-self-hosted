@@ -77,6 +77,7 @@ source "qemu" "ubuntu-aarch64" {
 
   accelerator  = local.qemu_accelerator
   machine_type = var.emulated ? "virt" : "virt,gic_version=3"
+  cpu_mode     = var.emulated ? "cortex-a57" : "host"
   cpus         = local.build_cpus
 
   disk_discard   = "unmap"
@@ -98,7 +99,6 @@ source "qemu" "ubuntu-aarch64" {
   qemuargs = [
     ["-nographic", ""],
     ["-serial", "pty"],
-    ["-cpu", var.emulated ? "cortex-a57" : "host"],
     ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${local.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"],
   ]
 
