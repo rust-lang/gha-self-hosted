@@ -43,7 +43,7 @@ source "qemu" "ubuntu-x86_64" {
   vm_name          = "rootfs.qcow2"
   output_directory = "build/x86_64"
 
-  accelerator = var.env_qemu_accelerator
+  accelerator = local.qemu_accelerator
   cpus        = local.build_cpus
 
   disk_discard   = "unmap"
@@ -63,9 +63,9 @@ source "qemu" "ubuntu-x86_64" {
     ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${local.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"],
   ]
 
-  ssh_handshake_attempts = var.env_ssh_handshake_attempts
+  ssh_handshake_attempts = local.ssh_handshake_attempts
   ssh_password           = local.ssh_password
-  ssh_timeout            = var.env_ssh_timeout
+  ssh_timeout            = local.ssh_timeout
   ssh_username           = local.ssh_username
 
   use_default_display = true
@@ -75,8 +75,8 @@ source "qemu" "ubuntu-aarch64" {
   vm_name          = "rootfs.qcow2"
   output_directory = "build/aarch64"
 
-  accelerator  = var.env_qemu_accelerator
-  machine_type = var.env_aarch64_machine
+  accelerator  = local.qemu_accelerator
+  machine_type = var.emulated ? "virt" : "virt,gic_version=3"
   cpus         = local.build_cpus
 
   disk_discard   = "unmap"
@@ -95,14 +95,14 @@ source "qemu" "ubuntu-aarch64" {
   qemuargs = [
     ["-nographic", ""],
     ["-serial", "pty"],
-    ["-cpu", "${var.env_aarch64_cpu}"],
+    ["-cpu", var.emulated ? "cortex-a57" : "host"],
     ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"],
     ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${local.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"],
   ]
 
-  ssh_handshake_attempts = var.env_ssh_handshake_attempts
+  ssh_handshake_attempts = local.ssh_handshake_attempts
   ssh_password           = local.ssh_password
-  ssh_timeout            = var.env_ssh_timeout
+  ssh_timeout            = local.ssh_timeout
   ssh_username           = local.ssh_username
 
   use_default_display = true
@@ -113,38 +113,20 @@ locals {
   build_disk_size = "5G"
   build_hostname  = "gha-self-hosted-vm"
 
-  ssh_username = "manage"
-  ssh_password = "password"
+  qemu_accelerator = var.emulated ? "tcg" : "kvm"
+
+  ssh_handshake_attempts = var.emulated ? 100 : 10
+  ssh_timeout            = var.emulated ? "1h" : "5m"
+  ssh_password           = "password"
+  ssh_username           = "manage"
 
   ubuntu_version = "20.04"
 }
 
-variable "env_aarch64_cpu" {
-  type    = string
-  default = "${env("AARCH64_CPU")}"
-}
-
-variable "env_aarch64_machine" {
-  type    = string
-  default = "${env("AARCH64_MACHINE")}"
+variable "emulated" {
+  type = bool
 }
 
 variable "git_sha" {
-  type    = string
-  default = env("GIT_SHA")
-}
-
-variable "env_qemu_accelerator" {
-  type    = string
-  default = "${env("QEMU_ACCELERATOR")}"
-}
-
-variable "env_ssh_handshake_attempts" {
-  type    = string
-  default = "${env("SSH_HANDSHAKE_ATTEMPTS")}"
-}
-
-variable "env_ssh_timeout" {
-  type    = string
-  default = "${env("SSH_TIMEOUT")}"
+  type = string
 }
