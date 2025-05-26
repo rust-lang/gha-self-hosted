@@ -39,19 +39,84 @@ build {
   }
 }
 
-variable "build_cpus" {
-  type    = string
-  default = "8"
+source "qemu" "ubuntu-x86_64" {
+  vm_name          = "rootfs.qcow2"
+  output_directory = "build/x86_64"
+
+  accelerator = var.env_qemu_accelerator
+  cpus        = local.build_cpus
+
+  disk_discard   = "unmap"
+  disk_image     = true
+  disk_interface = "virtio-scsi"
+  disk_size      = local.build_disk_size
+
+  # Serve the cloud-init/ directory with the QEMU provisioner's HTTP server.
+  # This allows us to do the initial configuration (adding the SSH user).
+  http_directory = "cloud-init"
+
+  iso_checksum = "file:https://cloud-images.ubuntu.com/releases/${local.ubuntu_version}/release/SHA256SUMS"
+  iso_url      = "https://cloud-images.ubuntu.com/releases/${local.ubuntu_version}/release/ubuntu-${local.ubuntu_version}-server-cloudimg-amd64.img"
+
+  qemu_binary = "qemu-system-x86_64"
+  qemuargs = [
+    ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${local.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"],
+  ]
+
+  ssh_handshake_attempts = var.env_ssh_handshake_attempts
+  ssh_password           = local.ssh_password
+  ssh_timeout            = var.env_ssh_timeout
+  ssh_username           = local.ssh_username
+
+  use_default_display = true
 }
 
-variable "build_disk_size" {
-  type    = string
-  default = "5G"
+source "qemu" "ubuntu-aarch64" {
+  vm_name          = "rootfs.qcow2"
+  output_directory = "build/aarch64"
+
+  accelerator  = var.env_qemu_accelerator
+  machine_type = var.env_aarch64_machine
+  cpus         = local.build_cpus
+
+  disk_discard   = "unmap"
+  disk_image     = true
+  disk_interface = "virtio-scsi"
+  disk_size      = local.build_disk_size
+
+  # Serve the cloud-init/ directory with the QEMU provisioner's HTTP server.
+  # This allows us to do the initial configuration (adding the SSH user).
+  http_directory = "cloud-init"
+
+  iso_checksum = "file:https://cloud-images.ubuntu.com/releases/${local.ubuntu_version}/release/SHA256SUMS"
+  iso_url      = "https://cloud-images.ubuntu.com/releases/${local.ubuntu_version}/release/ubuntu-${local.ubuntu_version}-server-cloudimg-arm64.img"
+
+  qemu_binary = "qemu-system-aarch64"
+  qemuargs = [
+    ["-nographic", ""],
+    ["-serial", "pty"],
+    ["-cpu", "${var.env_aarch64_cpu}"],
+    ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"],
+    ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${local.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"],
+  ]
+
+  ssh_handshake_attempts = var.env_ssh_handshake_attempts
+  ssh_password           = local.ssh_password
+  ssh_timeout            = var.env_ssh_timeout
+  ssh_username           = local.ssh_username
+
+  use_default_display = true
 }
 
-variable "build_hostname" {
-  type    = string
-  default = "gha-self-hosted-vm"
+locals {
+  build_cpus      = 8
+  build_disk_size = "5G"
+  build_hostname  = "gha-self-hosted-vm"
+
+  ssh_username = "manage"
+  ssh_password = "password"
+
+  ubuntu_version = "20.04"
 }
 
 variable "env_aarch64_cpu" {
@@ -82,67 +147,4 @@ variable "env_ssh_handshake_attempts" {
 variable "env_ssh_timeout" {
   type    = string
   default = "${env("SSH_TIMEOUT")}"
-}
-
-variable "ssh_password" {
-  type    = string
-  default = "password"
-}
-
-variable "ssh_user" {
-  type    = string
-  default = "manage"
-}
-
-variable "ubuntu_codename" {
-  type    = string
-  default = "focal"
-}
-
-variable "ubuntu_version" {
-  type    = string
-  default = "20.04"
-}
-
-source "qemu" "ubuntu-aarch64" {
-  accelerator            = "${var.env_qemu_accelerator}"
-  cpus                   = "${var.build_cpus}"
-  disk_discard           = "unmap"
-  disk_image             = true
-  disk_interface         = "virtio-scsi"
-  disk_size              = "${var.build_disk_size}"
-  http_directory         = "cloud-init"
-  iso_checksum           = "file:https://cloud-images.ubuntu.com/releases/${var.ubuntu_codename}/release/SHA256SUMS"
-  iso_url                = "https://cloud-images.ubuntu.com/releases/${var.ubuntu_codename}/release/ubuntu-${var.ubuntu_version}-server-cloudimg-arm64.img"
-  machine_type           = "${var.env_aarch64_machine}"
-  output_directory       = "build/aarch64"
-  qemu_binary            = "qemu-system-aarch64"
-  qemuargs               = [["-nographic", ""], ["-serial", "pty"], ["-cpu", "${var.env_aarch64_cpu}"], ["-bios", "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd"], ["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${var.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"]]
-  ssh_handshake_attempts = "${var.env_ssh_handshake_attempts}"
-  ssh_password           = "${var.ssh_password}"
-  ssh_timeout            = "${var.env_ssh_timeout}"
-  ssh_username           = "${var.ssh_user}"
-  use_default_display    = true
-  vm_name                = "rootfs.qcow2"
-}
-
-source "qemu" "ubuntu-x86_64" {
-  accelerator            = "${var.env_qemu_accelerator}"
-  cpus                   = "${var.build_cpus}"
-  disk_discard           = "unmap"
-  disk_image             = true
-  disk_interface         = "virtio-scsi"
-  disk_size              = "${var.build_disk_size}"
-  http_directory         = "cloud-init"
-  iso_checksum           = "file:https://cloud-images.ubuntu.com/releases/${var.ubuntu_codename}/release/SHA256SUMS"
-  iso_url                = "https://cloud-images.ubuntu.com/releases/${var.ubuntu_codename}/release/ubuntu-${var.ubuntu_version}-server-cloudimg-amd64.img"
-  output_directory       = "build/x86_64"
-  qemu_binary            = "qemu-system-x86_64"
-  qemuargs               = [["-smbios", "type=1,serial=ds=nocloud-net;instance-id=${var.build_hostname};seedfrom=http://{{ .HTTPIP }}:{{ .HTTPPort }}/"]]
-  ssh_handshake_attempts = "${var.env_ssh_handshake_attempts}"
-  ssh_password           = "${var.ssh_password}"
-  ssh_timeout            = "${var.env_ssh_timeout}"
-  ssh_username           = "${var.ssh_user}"
-  use_default_display    = true
-  vm_name                = "rootfs.qcow2"
 }
