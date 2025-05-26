@@ -11,19 +11,19 @@ clean:
 
 x86_64-host:
 	rm -rf build/x86_64
-	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -only=qemu.ubuntu-x86_64 image.pkr.hcl
+	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -var arch=x86_64 image.pkr.hcl
 
 x86_64-emul:
 	rm -rf build/x86_64
-	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -only=qemu.ubuntu-x86_64 image.pkr.hcl
+	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -var arch=x86_64 image.pkr.hcl
 
 aarch64-host: build/qemu-efi-aarch64.fd
 	rm -rf build/aarch64
-	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -var firmware=build/qemu-efi-aarch64.fd -only qemu.ubuntu-aarch64 image.pkr.hcl
+	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -var arch=aarch64 -var firmware=build/qemu-efi-aarch64.fd image.pkr.hcl
 
 aarch64-emul: build/qemu-efi-aarch64.fd
 	rm -rf build/aarch64
-	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -var firmware=build/qemu-efi-aarch64.fd -only qemu.ubuntu-aarch64 image.pkr.hcl
+	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -var arch=aarch64 -var firmware=build/qemu-efi-aarch64.fd image.pkr.hcl
 
 build/qemu-efi-aarch64.fd: utils/download-qemu-efi-aarch64.sh
 	utils/download-qemu-efi-aarch64.sh "$@"
