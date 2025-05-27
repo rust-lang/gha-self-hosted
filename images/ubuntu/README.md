@@ -1,70 +1,85 @@
 # Ubuntu VM images
 
-This directory contains the source code used to build the VM images used in
-Rust's self-hosted CI. The images are specific to our environment and use [a
-custom fork of the GitHub Actions runner][rust-lang/gha-runner]: it's not
-recommended to use them outside our environment.
+> [!CAUTION]
+>
+> These images are strictly meant to be used in Rust's self-hosted CI. The Rust
+> infrastructure team provides no support for third parties attempting to use
+> the images, nor any stability guarantee. If you want to use these images, we
+> recommend forking this repository.
 
-If you're on a x86_64 or AArch64 machine you can build the image for your host
-architecture by running:
+This directory contains the source code used to build the Ubuntu images for
+Rust's self-hosted CI. The images are built with [Packer].
 
-```
-make
-```
+The images are based on Ubuntu 20.04, and are prepared for x86_64 and AArch64.
 
-You can also explicitly build the image for a single architecture:
+## Building the image locally
 
-```
-make x86_64-host
-make aarch64-host
+To build the images you should have the latest version of [Packer] and QEMU
+installed on your system. Running `make` will build the image for your host
+architecture. If you want to build specific images, the following commands are
+available:
 
-make x86_64-emul
-make aarch64-emul
-```
+| Architecture | Native build        | Emulated build      | Output path                  |
+| ------------ | ------------------- | ------------------- | ---------------------------- |
+| x86_64       | `make x86_64-host ` | `make x86_64-emul`  | `build/x86_64/rootfs.qcow2`  |
+| AArch64      | `make aarch64-host` | `make aarch64-emul` | `build/aarch64/rootfs.qcow2` |
 
-The resulting images will be located at:
+## Build process overview
 
-* Ubuntu 20.04 LTS x86_64: `build/x86_64/rootfs.qcow2`
-* Ubuntu 20.04 LTS AArch64: `build/aarch64/rootfs.qcow2`
+The build process for the image is fully driven by Packer, configured in
+`image.pkr.hcl`. The `Makefile` entry point is only responsible to download some
+pre-requisites and pass the correct variables to Packer.
 
-Note that to build AArch64 images you need the UEFI blob in your system. You
-can install it on Ubuntu by running:
+Once Packer downloads the base Ubuntu image, it boots it with QEMU (either
+natively or emulated depending on the architecture) and configures it in two
+stages.
 
-```
-sudo apt install qemu-efi-aarch64
-```
+The first stage is performed by [cloud-init]: Packer spins up a local HTTP
+server with the content of the `cloud-init/` directory, and points cloud-init to
+it. cloud-init is responsible to create the user Packer will SSH into, allowing
+the second stage to begin.
 
-## Image configuration
+The second stage is performed by Packer SSH'ing into the VM. It copies the
+`files/` directory (containing support files needed by our scripts) into the VM
+(at `/tmp/packer-files`), and then calls each of the scripts defined in the
+`scripts/` directory. These scripts are actually responsible for most of the VM
+configuration.
 
-The image accepts the following configuration keys passed by the executor
-script in this repository:
+> [!NOTE]
+>
+> Adding a script to the `scripts/` directory is **not** enough for it to be
+> executed. You will also need to explicitly list it in `image.pkr.hcl`.
 
-* `repo`: the GitHub repository to register the runner in.
-* `token`: GitHub Actions installation token for the agent.
-* `whitelisted-event` *(optional)*: value of the `RUST_WHITELISTED_EVENT_NAME`
-  environment variable.
+## Image runtime requirements
 
-During each boot, the VM will:
+The image is configured through a virtual CD-ROM that must be mounted in the
+virtual machine with the `instance-configuration` disk label. The CD-ROM must
+contain an `instance.json` file with the following schema:
 
-* Regenerate the SSH host keys instead of using the ones baked in the VM image.
-* Resize the root partition to take all available space in the disk.
-* Read the configuration from the CD-ROM and start the GitHub Actions runner.
+* `name`: name of the runner.
+* `config`:
+  * `repo`: GitHub repository to register the runner into.
+  * `token`: GitHub Actions registration token.
+  * `whitelisted-event` *(optional)*: value that will be set in the
+    `RUST_WHITELISTED_EVENT_NAME` environment variable.
 
-SSH access is available via the `manage` user, with the password: `password`.
+## Image runtime behavior
 
-## Directory structure
+Each time it boots, the VM will:
 
-This directory contains the following files and directories:
+* Resize the disk image to use all allocated space (implemented in
+  `files/regenerate-ssh-host-keys.sh`).
+* Regenerate the SSH host keys, to avoid reusing the keys baked into the image
+  (implemented in `files/regenerate-ssh-host-keys.sh`).
+* Mount the virtual CD-ROM (see "Image runtime requirements"), load the runner
+  configuration from it, eject the CD-ROM, and start the runner (implemented in
+  `files/start-gha-runner.py`).
 
-* `ubuntu.json`: the Packer manifest for the image, which contains
-  the list of scripts to call during the build.
-* `scripts/`: bash scripts included by the manifest: Packer will run them in the
-  build VM.
-* `files/`: files needed by the scripts: Packer will copy them in
-  `/tmp/packer-files` inside the build VM.
-* `cloud-init/`: [cloud-init] configuration, used to setup authentication in the
-  build VMs.
+The GitHub Actions runner will then listen for jobs, and execute a single job,
+once the job finishes, the runner will shut down the VM.
 
-[rust-lang/gha-runner]: https://github.com/rust-lang/gha-runner
-[Packer]: https://www.packer.io/
+The VM provides passwordless sudo access via SSH through the `manage` user
+(password: `password`).
+
+[Packer]: https://developer.hashicorp.com/packer
 [cloud-init]: https://cloud-init.io/
