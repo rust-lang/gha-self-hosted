@@ -41,7 +41,7 @@ build {
 
 source "qemu" "ubuntu" {
   vm_name          = "rootfs.qcow2"
-  output_directory = "build/${var.arch}"
+  output_directory = "build/packer-tmp"
 
   accelerator  = var.emulated ? "tcg" : "kvm"
   machine_type = var.arch == "aarch64" ? (var.emulated ? "virt" : "virt,gic_version=3") : "pc"
