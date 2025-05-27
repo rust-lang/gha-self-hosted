@@ -1,7 +1,7 @@
 ENV = PACKER_CACHE_DIR=build/cache
 PACKER_ARGS = -var "git_sha=$(shell git rev-parse HEAD)"
 
-.PHONY: host clean x86_64-host aarch64-host
+.PHONY: host clean init x86_64-host aarch64-host
 
 host:
 	make $(shell uname -m)-host
@@ -9,19 +9,22 @@ host:
 clean:
 	rm -rf build
 
-x86_64-host:
+init:
+	$(ENV) packer init image.pkr.hcl
+
+x86_64-host: init
 	rm -rf build/x86_64
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -var arch=x86_64 image.pkr.hcl
 
-x86_64-emul:
+x86_64-emul: init
 	rm -rf build/x86_64
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -var arch=x86_64 image.pkr.hcl
 
-aarch64-host: build/qemu-efi-aarch64.fd
+aarch64-host: init build/qemu-efi-aarch64.fd
 	rm -rf build/aarch64
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -var arch=aarch64 -var firmware=build/qemu-efi-aarch64.fd image.pkr.hcl
 
-aarch64-emul: build/qemu-efi-aarch64.fd
+aarch64-emul: init build/qemu-efi-aarch64.fd
 	rm -rf build/aarch64
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -var arch=aarch64 -var firmware=build/qemu-efi-aarch64.fd image.pkr.hcl
 
