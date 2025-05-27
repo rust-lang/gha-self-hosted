@@ -1,7 +1,7 @@
 ENV = PACKER_CACHE_DIR=build/cache
 PACKER_ARGS = -var "git_sha=$(shell git rev-parse HEAD)"
 
-.PHONY: host clean init x86_64-host aarch64-host
+.PHONY: host clean init x86_64-host x86_64-emul aarch64-host aarch64-emul
 
 host:
 	make $(shell uname -m)-host
