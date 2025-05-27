@@ -12,6 +12,33 @@ Rust's self-hosted CI. The images are built with [Packer].
 
 The images are based on Ubuntu 20.04, and are prepared for x86_64 and AArch64.
 
+## Accessing the images built by CI
+
+Our production infrastructure relies on VM images built by CI. These images are
+uploaded to [gha-self-hosted-images.infra.rust-lang.org] when a PR is being
+merged to `main` with the merge queue.
+
+In order to download any image, you must first retrieve the latest commit hash,
+which is available at the [`/latest`][cdn-latest] URL. Then, access the relevant
+URL depending on the image you want, replacing `${commit}` with the commit hash
+you previously retrieved:
+
+| Architecture | Compression | URL template                                 |
+| ------------ | ----------- | -------------------------------------------- |
+| x86_64       | zstandard   | `/images/${commit}/ubuntu-x86_64.qcow2.zst`  |
+| AArch64      | zstandard   | `/images/${commit}/ubuntu-aarch64.qcow2.zst` |
+
+### Rolling back to a previously built image
+
+Merging changes that break our self-hosted runners might happen, and in those
+cases the easiest way to roll back is to create a new PR reverting the
+problematic changes.
+
+If that is not quick enough, you can ask a member of infra-admins to manually
+override the `latest` object inside of the `rust-gha-self-hosted-images` S3
+bucket to point to the known good commit. No CDN invalidation is needed, as that
+file intentionally has a short TTL.
+
 ## Building the image locally
 
 To build the images you should have the latest version of [Packer] and QEMU
@@ -28,11 +55,10 @@ available:
 
 The build process for the image is fully driven by Packer, configured in
 `image.pkr.hcl`. The `Makefile` entry point is only responsible to download some
-pre-requisites and pass the correct variables to Packer.
-
-Once Packer downloads the base Ubuntu image, it boots it with QEMU (either
-natively or emulated depending on the architecture) and configures it in two
-stages.
+pre-requisites, pass the correct variables to Packer, and move files to their
+correct location. Once Packer downloads the base Ubuntu image, it boots it with
+QEMU (either natively or emulated depending on the architecture) and configures
+it in two stages.
 
 The first stage is performed by [cloud-init]: Packer spins up a local HTTP
 server with the content of the `cloud-init/` directory, and points cloud-init to
@@ -83,3 +109,5 @@ The VM provides passwordless sudo access via SSH through the `manage` user
 
 [Packer]: https://developer.hashicorp.com/packer
 [cloud-init]: https://cloud-init.io/
+[gha-self-hosted-images.infra.rust-lang.org]: https://gha-self-hosted-images.infra.rust-lang.org
+[cdn-latest]: https://gha-self-hosted-images.infra.rust-lang.org/latest
