@@ -51,6 +51,11 @@ jobs:
         run: |
           cd "images/${IMAGE_NAME}"
           make "${IMAGE_ARCH}-${IMAGE_MODE}"
+        env:
+          # This token is only needed to bypass the rate limit when downloading Packer plugins. The
+          # token only has read-only access to repository contents anyway, so there is no risk
+          # passing it to Packer.
+          PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Compression level 9 seems to be the one where we stop getting improvements, after trying to
       # compress some images locally in May 2025.
