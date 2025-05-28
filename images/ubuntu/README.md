@@ -86,8 +86,6 @@ contain an `instance.json` file with the following schema:
 * `config`:
   * `repo`: GitHub repository to register the runner into.
   * `token`: GitHub Actions registration token.
-  * `whitelisted-event` *(optional)*: value that will be set in the
-    `RUST_WHITELISTED_EVENT_NAME` environment variable.
 
 ## Image runtime behavior
 

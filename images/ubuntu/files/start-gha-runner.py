@@ -34,10 +34,7 @@ subprocess.run([
 ], check=True)
 
 # Start the runner
-env = dict(os.environ)
-if "whitelisted-event" in instance["config"]:
-    env["RUST_WHITELISTED_EVENT_NAME"] = instance["config"]["whitelisted-event"]
-subprocess.run(["./run.sh"], env=env, check=True)
+subprocess.run(["./run.sh"], check=True)
 
 # Stop the machine
 subprocess.run(["sudo", "poweroff"], check=True)
