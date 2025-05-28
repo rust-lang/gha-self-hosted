@@ -3,7 +3,7 @@ Description=GitHub Actions Runner
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/start-gha-runner
+ExecStart=/usr/local/bin/gha-runner
 User=gha
 Group=gha
 WorkingDirectory=/gha
