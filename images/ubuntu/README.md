@@ -92,8 +92,8 @@ Each time it boots, the VM will:
   `files/regenerate-ssh-host-keys.sh`).
 * Regenerate the SSH host keys, to avoid reusing the keys baked into the image
   (implemented in `files/regenerate-ssh-host-keys.sh`).
-* Mount the virtual block device (see "Image runtime requirements"), load the runner
-  configuration from it, eject the CD-ROM, and start the runner (implemented in
+* Mount the virtual block device (see "Image runtime requirements"), load the
+  runner configuration from it, and start the runner (implemented in
   `files/start-gha-runner.py`).
 
 The GitHub Actions runner will then listen for jobs, and execute a single job,
