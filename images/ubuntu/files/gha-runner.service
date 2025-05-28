@@ -3,7 +3,15 @@ Description=GitHub Actions Runner
 After=network.target
 
 [Service]
-ExecStart=/usr/local/bin/start-gha-runner
+# Start the runner using just-in-time configuration. The jitconfig is loaded using systemd's
+# credentials management (https://systemd.io/CREDENTIALS/), which allows it to be set by the
+# hypervisor with a single command-line flag.
+ExecStart=/bin/sh -c './run.sh --jitconfig "$(cat ${CREDENTIALS_DIRECTORY}/gha-jitconfig)"'
+LoadCredential=gha-jitconfig
+
+# Power off the system when a CI run finishes.
+ExecStopPost=/usr/bin/sudo /usr/bin/systemctl poweroff
+
 User=gha
 Group=gha
 WorkingDirectory=/gha

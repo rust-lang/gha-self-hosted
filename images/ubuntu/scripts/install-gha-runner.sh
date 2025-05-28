@@ -48,8 +48,6 @@ rm /tmp/runner.tar.gz
 
 echo "configuring startup of the runner..."
 sudo cp /tmp/packer-files/gha-runner.service /etc/systemd/system/gha-runner.service
-sudo cp /tmp/packer-files/start-gha-runner.py /usr/local/bin/start-gha-runner
-sudo chmod +x /usr/local/bin/start-gha-runner
 sudo systemctl daemon-reload
 sudo systemctl enable gha-runner.service # Will start at the next boot.
 

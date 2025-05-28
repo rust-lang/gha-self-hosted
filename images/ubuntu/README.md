@@ -78,11 +78,14 @@ configuration.
 
 ## Image runtime requirements
 
-The image requires a virtual block device with label `instance-configuration` to
-be attached to the virtual machine. The block device must contain a file called
-`jitconfig` containing the encoded just-in-time runner configuration retrieved
-from the GitHub API (see API docs at the [repository][jit-repo],
-[organization][jit-org], or [enterprise][jit-enterprise] scope).
+The image requires the `gha-jitconfig` [systemd credential] to be set by the
+hypervisor, containing the encoded just-in-time runner configuration retrieved
+from the GitHub API ([repositories][jit-repo], [organizations][jit-org], or
+[enterprises][jit-enterprise]). On QEMU, you can set it with this flag:
+
+```
+-smbios type=11,value=io.systemd.credential:gha-jitconfig=CONFIG_GOES_HERE
+```
 
 ## Image runtime behavior
 
@@ -92,8 +95,8 @@ Each time it boots, the VM will:
   `files/regenerate-ssh-host-keys.sh`).
 * Regenerate the SSH host keys, to avoid reusing the keys baked into the image
   (implemented in `files/regenerate-ssh-host-keys.sh`).
-* Mount the virtual block device (see "Image runtime requirements"), load the runner
-  configuration from it, eject the CD-ROM, and start the runner (implemented in
+* Mount the virtual block device (see "Image runtime requirements"), load the
+  runner configuration from it, and start the runner (implemented in
   `files/start-gha-runner.py`).
 
 The GitHub Actions runner will then listen for jobs, and execute a single job,
@@ -106,6 +109,7 @@ The VM provides passwordless sudo access via SSH through the `manage` user
 [cloud-init]: https://cloud-init.io/
 [gha-self-hosted-images.infra.rust-lang.org]: https://gha-self-hosted-images.infra.rust-lang.org
 [cdn-latest]: https://gha-self-hosted-images.infra.rust-lang.org/latest
+[systemd credential]: https://systemd.io/CREDENTIALS/
 [jit-repo]: https://docs.github.com/en/enterprise-cloud@latest/rest/actions/self-hosted-runners?versionId=enterprise-cloud%40latest&apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-a-repository
 [jit-org]: https://docs.github.com/en/enterprise-cloud@latest/rest/actions/self-hosted-runners?versionId=enterprise-cloud%40latest&apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-an-organization
 [jit-enterprise]: https://docs.github.com/en/enterprise-cloud@latest/rest/actions/self-hosted-runners?versionId=enterprise-cloud%40latest&apiVersion=2022-11-28#create-configuration-for-a-just-in-time-runner-for-an-enterprise
