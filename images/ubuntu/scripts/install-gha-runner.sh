@@ -26,10 +26,9 @@ sudo adduser gha docker
 echo "gha ALL=(ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/gha-nopasswd
 
 echo "downloading and installing the runner..."
-cd /gha
-sudo -u gha -- curl -Lo runner.tar.gz https://github.com/${AGENT_REPO}/releases/download/v${AGENT_VERSION}/actions-runner-${AGENT_PLATFORM}-${AGENT_VERSION}.tar.gz
-sudo -u gha -- tar -xzf ./runner.tar.gz
-sudo -u gha -- rm ./runner.tar.gz
+curl -Lo /tmp/runner.tar.gz https://github.com/${AGENT_REPO}/releases/download/v${AGENT_VERSION}/actions-runner-${AGENT_PLATFORM}-${AGENT_VERSION}.tar.gz
+sudo -u gha -- tar -C /gha -xzf /tmp/runner.tar.gz
+rm /tmp/runner.tar.gz
 
 echo "configuring startup of the runner..."
 sudo cp /tmp/packer-files/gha-runner.service /etc/systemd/system/gha-runner.service
