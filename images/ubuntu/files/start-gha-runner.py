@@ -13,8 +13,8 @@ temp = tempfile.mkdtemp()
 subprocess.run(["sudo", "mount", "-o", "ro", CDROM, temp], check=True)
 
 # Load the environment from it
-with open(temp + "/instance.json") as f:
-    instance = json.load(f)
+with open(temp + "/jitconfig") as f:
+    jitconfig = f.read()
 
 # Eject the CD containing the environment
 subprocess.run(["sudo", "umount", temp], check=True)
@@ -24,17 +24,8 @@ except subprocess.CalledProcessError:
     print("warning: failed to eject the CD-ROM")
 os.rmdir(temp)
 
-# Configure the GitHub Actions runner
-subprocess.run([
-    "./config.sh", "--unattended", "--replace",
-    "--url", "https://github.com/" + instance["config"]["repo"],
-    "--token", instance["config"]["token"],
-    "--name", instance["name"] + uuid.uuid4().hex,
-    "--ephemeral",
-], check=True)
-
 # Start the runner
-subprocess.run(["./run.sh"], check=True)
+subprocess.run(["./run.sh", "--jitconfig", jitconfig], check=True)
 
 # Stop the machine
 subprocess.run(["sudo", "poweroff"], check=True)
