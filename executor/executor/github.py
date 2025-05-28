@@ -1,8 +1,14 @@
+from dataclasses import dataclass
+from uuid import uuid4
 from .utils import log
 import jwt
 import requests
 import threading
 import time
+
+
+# How many seconds should pass between each call to the GitHub API.
+GITHUB_API_POLL_INTERVAL = 15
 
 
 class GitHub:
@@ -54,45 +60,46 @@ class GitHub:
             exit(1)
         return response
 
-    def fetch_registration_token(self) -> str:
-        log(f"fetching the GHA installation token for {self.org}")
+    def create_runner(self, cli, instance):
         resp = self._handle_error(
             self._http.post(
-                f"https://api.github.com/orgs/{self.org}/actions/runners/registration-token"
+                f"https://api.github.com/orgs/{self.org}/actions/runners/generate-jitconfig",
+                json={
+                    "name": f"{instance['label']}-{uuid4()}",
+                    "runner_group_id": cli.runner_group_id,
+                    "labels": [instance["label"]],
+                },
             )
+        ).json()
+        return RunnerInfo(id=resp["runner"]["id"], jitconfig=resp["encoded_jit_config"])
+
+    def get_runner(self, id):
+        r = self._http.get(
+            f"https://api.github.com/orgs/{self.org}/actions/runners/{id}"
         )
-        return resp.json()["token"]
-
-
-# How many seconds should pass between each call to the GitHub API.
-GITHUB_API_POLL_INTERVAL = 15
+        return self._handle_error(r).json()
 
 
 class GitHubRunnerStatusWatcher(threading.Thread):
-    def __init__(self, gh, repo, runner_name, check_interval, then):
+    def __init__(self, gh, runner_id, then):
         super().__init__(name="github-runner-status-watcher", daemon=True)
 
-        self._check_interval = check_interval
         self._gh = gh
-        self._repo = repo
-        self._runner_name = runner_name
+        self._runner_id = runner_id
         self._then = then
 
     def run(self):
         log("started polling GitHub to detect when the runner started working")
         while True:
-            runners = self._retrieve_runners()
-            if self._runner_name in runners and runners[self._runner_name]["busy"]:
+            runner = self._gh.get_runner(self._runner_id)
+            if runner["busy"]:
                 log("the runner started processing a build!")
                 self._then()
                 break
-            time.sleep(self._check_interval)
+            time.sleep(GITHUB_API_POLL_INTERVAL)
 
-    def _retrieve_runners(self):
-        result = {}
-        url = f"https://api.github.com/repos/{self._repo}/actions/runners"
-        # TODO: this is broken
-        for response in self._gh._handle_error(self._gh._http.get(url)).json():
-            for runner in response["runners"]:
-                result[runner["name"]] = runner
-        return result
+
+@dataclass
+class RunnerInfo:
+    id: int
+    jitconfig: str

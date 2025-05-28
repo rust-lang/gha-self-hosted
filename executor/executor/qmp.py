@@ -28,28 +28,16 @@ class QMPClient:
         self._write_message({"execute": "system_powerdown"})
         self._read_success()
 
-    def eject(self, device, *, force=False):
-        self._write_message(
-            {
-                "execute": "eject",
-                "arguments": {
-                    "device": device,
-                    "force": force,
-                },
-            }
-        )
-        self._read_success()
-
-    def wait_for_event(self, event):
-        while True:
-            message = self._read_message()
-            if "event" in message and message["event"] == event:
-                return message["data"]
-
     def _read_success(self):
-        result = self._read_message()
-        if "return" not in result:
-            raise RuntimeError("QMP returned an error: " + repr(result))
+        while True:
+            result = self._read_message()
+            if "return" in result:
+                return result
+            elif "event" in result:
+                # We don't care about any event, so let's discard them.
+                continue
+            else:
+                raise RuntimeError("QMP returned an error: " + repr(result))
 
     def _write_message(self, message):
         self._conn.write(json.dumps(message).encode("utf-8") + b"\r\n")
