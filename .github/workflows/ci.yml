@@ -32,7 +32,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Packer
-        uses: hashicorp/setup-packer@main
+        uses: hashicorp/setup-packer@76e3039aa951aa4e6efe7e6ee06bc9ceb072142d
 
       - name: Install QEMU
         run: |
