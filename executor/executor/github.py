@@ -90,12 +90,17 @@ class GitHubRunnerStatusWatcher(threading.Thread):
 
     def run(self):
         log("started polling GitHub to detect when the runner started working")
+        last_status = "offline"
+        build_started = False
         while True:
             runner = self._gh.get_runner(self._runner_id)
-            if runner["busy"]:
+            if runner["status"] != last_status:
+                log(f"runner status changed to {runner['status']}")
+                last_status = runner["status"]
+            if runner["busy"] and not build_started:
                 log("the runner started processing a build!")
                 self._then()
-                break
+                build_started = True
             time.sleep(GITHUB_API_POLL_INTERVAL)
 
 
