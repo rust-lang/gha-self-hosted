@@ -2,4 +2,8 @@
 name = "executor"
 version = "0.0.0"
 requires-python = "==3.12.*" # TODO: 3.13 removes telnetlib
-dependencies = []
+dependencies = [
+    "cryptography ~= 45.0.3",
+    "pyjwt ~= 2.10.1",
+    "requests ~= 2.32.3",
+]

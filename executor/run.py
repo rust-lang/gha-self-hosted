@@ -1,21 +1,21 @@
 #!/usr/bin/env -S uv run
 
+from executor.github import GitHub
+from executor.qemu import VM
 import argparse
 import json
 import re
 import signal
 import sys
-from executor.utils import log
-from executor.qemu import VM
-from executor.github import github_api
 
 
 class ConfigPreprocessor:
     # This regex matches: ${{ FUNCTION:ARGS }}
     _VARIABLE_RE = re.compile(r"^\${{ *(?P<function>[a-zA-Z0-9_-]+):(?P<args>[^}]+)}}$")
 
-    def __init__(self, config):
+    def __init__(self, config, gh: GitHub):
         self._config = config
+        self._gh = gh
 
     def process(self):
         for key, value in self._config.items():
@@ -27,22 +27,11 @@ class ConfigPreprocessor:
             args = matches.group("args").strip()
 
             if function == "gha-install-token":
-                self._config[key] = self._fetch_gha_install_token(args)
+                self._config[key] = self._gh.fetch_registration_token()
             else:
                 raise ValueError(f"unknown preprocessor function: {function}")
 
         return self._config
-
-    def _fetch_gha_install_token(self, repo):
-        log(f"fetching the GHA installation token for {repo}")
-
-        res = next(
-            github_api(
-                "POST",
-                f"https://api.github.com/repos/{repo}/actions/runners/registration-token",
-            )
-        )
-        return res["token"]
 
 
 signal_vms = []
@@ -56,6 +45,8 @@ def sigusr1_received(sig, frame):
 def run(cli):
     signal.signal(signal.SIGUSR1, sigusr1_received)
 
+    gh = GitHub(cli)
+
     with open("instances.json") as f:
         instances = json.load(f)
 
@@ -68,7 +59,7 @@ def run(cli):
         print(f"error: instance not found: {cli.instance_name}", file=sys.stderr)
         exit(1)
 
-    config = ConfigPreprocessor(instance["config"])
+    config = ConfigPreprocessor(instance["config"], gh)
     env = {
         "name": instance["name"],
         "config": config.process(),
@@ -77,13 +68,29 @@ def run(cli):
     vm = VM(instance, env)
     signal_vms.append(vm)
 
-    vm.run()
+    vm.run(gh)
     vm.cleanup()
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("instance_name")
+
+    parser.add_argument(
+        "--github-client-id",
+        help="Client ID of the GitHub App used to authenticate",
+        required=True,
+    )
+    parser.add_argument(
+        "--github-private-key",
+        help="Path to the private key of the GitHub App used to authenticate",
+        required=True,
+    )
+    parser.add_argument(
+        "--github-org",
+        help="GitHub org to register the runner into",
+        required=True,
+    )
 
     args = parser.parse_args()
     run(args)
