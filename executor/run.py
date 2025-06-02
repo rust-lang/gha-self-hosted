@@ -1,5 +1,6 @@
 #!/usr/bin/env -S uv run
 
+import argparse
 import json
 import re
 import signal
@@ -52,7 +53,7 @@ def sigusr1_received(sig, frame):
         vm.sigusr1_received()
 
 
-def run(instance_name):
+def run(cli):
     signal.signal(signal.SIGUSR1, sigusr1_received)
 
     with open("instances.json") as f:
@@ -60,11 +61,11 @@ def run(instance_name):
 
     instance = None
     for candidate in instances:
-        if candidate["name"] == instance_name:
+        if candidate["name"] == cli.instance_name:
             instance = candidate
             break
     else:
-        print(f"error: instance not found: {instance_name}", file=sys.stderr)
+        print(f"error: instance not found: {cli.instance_name}", file=sys.stderr)
         exit(1)
 
     config = ConfigPreprocessor(instance["config"])
@@ -80,9 +81,13 @@ def run(instance_name):
     vm.cleanup()
 
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("instance_name")
+
+    args = parser.parse_args()
+    run(args)
+
+
 if __name__ == "__main__":
-    if len(sys.argv) == 2:
-        run(sys.argv[1])
-    else:
-        print(f"usage: {sys.argv[0]} <instance-name>", file=sys.stderr)
-        exit(1)
+    main()
