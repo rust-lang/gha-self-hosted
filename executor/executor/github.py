@@ -1,10 +1,67 @@
 from .utils import log
-import json
-import os
-import re
+import jwt
+import requests
 import threading
 import time
-import urllib.request
+
+
+class GitHub:
+    def __init__(self, cli):
+        self.org = cli.github_org
+
+        self._http = requests.Session()
+        self._http.headers["User-Agent"] = (
+            "rust-lang/gha-self-hosted (infra@rust-lang.org)"
+        )
+
+        log(f"generating a JWT to authenticate as app {cli.github_client_id}")
+        bearer = jwt.encode(
+            {
+                "iat": int(time.time() - 60),
+                "exp": int(time.time() + 60 * 5),
+                "iss": cli.github_client_id,
+            },
+            open(cli.github_private_key, "rb").read(),
+            algorithm="RS256",
+        )
+
+        log(f"retrieving app installation id for {self.org}")
+        resp = self._handle_error(
+            self._http.get(
+                f"https://api.github.com/orgs/{self.org}/installation",
+                headers={"Authorization": f"Bearer {bearer}"},
+            )
+        )
+        installation = resp.json()["id"]
+
+        log(f"retrieving token for installation {installation}")
+        resp = self._handle_error(
+            self._http.post(
+                f"https://api.github.com/app/installations/{installation}/access_tokens",
+                headers={"Authorization": f"Bearer {bearer}"},
+            )
+        )
+
+        self._http.headers["Authorization"] = f"token {resp.json()['token']}"
+
+    def _handle_error(self, response: requests.Response) -> requests.Response:
+        if response.status_code >= 400:
+            print(
+                f"error: github responded with status {response.status_code} to the request"
+            )
+            print(f"url: {response.url}")
+            print(f"message: {response.json()['message']}")
+            exit(1)
+        return response
+
+    def fetch_registration_token(self) -> str:
+        log(f"fetching the GHA installation token for {self.org}")
+        resp = self._handle_error(
+            self._http.post(
+                f"https://api.github.com/orgs/{self.org}/actions/runners/registration-token"
+            )
+        )
+        return resp.json()["token"]
 
 
 # How many seconds should pass between each call to the GitHub API.
@@ -12,10 +69,11 @@ GITHUB_API_POLL_INTERVAL = 15
 
 
 class GitHubRunnerStatusWatcher(threading.Thread):
-    def __init__(self, repo, runner_name, check_interval, then):
+    def __init__(self, gh, repo, runner_name, check_interval, then):
         super().__init__(name="github-runner-status-watcher", daemon=True)
 
         self._check_interval = check_interval
+        self._gh = gh
         self._repo = repo
         self._runner_name = runner_name
         self._then = then
@@ -33,37 +91,8 @@ class GitHubRunnerStatusWatcher(threading.Thread):
     def _retrieve_runners(self):
         result = {}
         url = f"https://api.github.com/repos/{self._repo}/actions/runners"
-        for response in github_api("GET", url):
+        # TODO: this is broken
+        for response in self._gh._handle_error(self._gh._http.get(url)).json():
             for runner in response["runners"]:
                 result[runner["name"]] = runner
         return result
-
-
-NEXT_LINK_RE = re.compile(r"<([^>]+)>; rel=\"next\"")
-
-
-def github_api(method, url):
-    try:
-        github_token = os.environ["GITHUB_TOKEN"]
-    except KeyError:
-        raise RuntimeError("missing environment variable GITHUB_TOKEN") from None
-
-    while url is not None:
-        request = urllib.request.Request(url)
-        request.add_header(
-            "User-Agent",
-            "https://github.com/rust-lang/gha-self-hosted (infra@rust-lang.org)",
-        )
-        request.add_header("Authorization", f"token {github_token}")
-        request.method = method
-
-        response = urllib.request.urlopen(request)
-
-        # Handle pagination of the GitHub API
-        url = None
-        if "Link" in response.headers:
-            captures = NEXT_LINK_RE.search(response.headers["Link"])
-            if captures is not None:
-                url = captures.group(1)
-
-        yield json.load(response)

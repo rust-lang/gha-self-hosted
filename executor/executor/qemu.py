@@ -8,8 +8,6 @@ import random
 import shutil
 import subprocess
 import tempfile
-import threading
-import time
 
 
 # Range of ports where QMP could be bound.
@@ -131,7 +129,7 @@ class VM:
 
         shutil.rmtree(str(tempdir))
 
-    def run(self):
+    def run(self, gh):
         if self._process is not None:
             raise RuntimeError("this VM was already started")
 
@@ -184,6 +182,7 @@ class VM:
 
         if "repo" in self._env["config"]:
             GitHubRunnerStatusWatcher(
+                gh,
                 self._env["config"]["repo"],
                 self._env["name"],
                 GITHUB_API_POLL_INTERVAL,
