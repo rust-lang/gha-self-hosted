@@ -108,6 +108,14 @@ jobs:
               --key "images/${GITHUB_SHA}/$(basename "${file}")" \
               --body "${file}" \
               --if-none-match "*"
+            echo "calculating hash of ${file}..."
+            sha256sum "${file}" | cut -d ' ' -f 1 > hash
+            echo "uploading ${file}.sha256..."
+            aws s3api put-object \
+              --bucket rust-gha-self-hosted-images \
+              --key "images/${GITHUB_SHA}/$(basename "${file}").sha256" \
+              --body "hash" \
+              --if-none-match "*"
           done
 
       - name: Mark the current commit as the last one
