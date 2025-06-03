@@ -3,14 +3,10 @@ from .qmp import QMPClient
 from .utils import log, Timer
 import os
 import pathlib
-import random
 import shutil
 import subprocess
 import tempfile
 
-
-# Range of ports where QMP could be bound.
-QMP_PORT_RANGE = (50000, 55000)
 
 # How many seconds to wait after a graceful shutdown signal before killing the
 # virtual machine.
@@ -63,7 +59,7 @@ class VM:
         self._path_root = self._path / "root.qcow2"
 
         self._process = None
-        self._qmp_shutdown_port = random.randint(*QMP_PORT_RANGE)
+        self._qmp_shutdown_path = self._path / "shutdown.sock"
 
         self._copy_base_image()
 
@@ -130,7 +126,7 @@ class VM:
             # This QMP port is used by the shutdown() method to send the
             # shutdown signal to the QEMU VM instead of killing it.
             "-qmp",
-            "telnet:127.0.0.1:" + str(self._qmp_shutdown_port) + ",server,nowait",
+            "unix:" + str(self._qmp_shutdown_path) + ",server,nowait",
         ]
         cmd += QEMU_ARCH[self._arch]["flags"]
 
@@ -163,7 +159,7 @@ class VM:
         # port to send the graceful shutdown signal. If it fails, we're forced
         # to hard-kill the virtual machine.
         try:
-            qmp = QMPClient(self._qmp_shutdown_port)
+            qmp = QMPClient(self._qmp_shutdown_path)
             qmp.shutdown_vm()
         except Exception as e:
             print("failed to gracefully shutdown the VM:", e)
