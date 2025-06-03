@@ -1,5 +1,5 @@
+import socket
 import json
-import telnetlib
 
 
 # QMP (QEMU Machine Protocol) is a way to control VMs spawned with QEMU, and
@@ -12,8 +12,11 @@ import telnetlib
 #    https://www.qemu.org/docs/master/qemu-qmp-ref.html#Commands-and-Events-Index
 #
 class QMPClient:
-    def __init__(self, port):
-        self._conn = telnetlib.Telnet("127.0.0.1", port)
+    def __init__(self, unix_path):
+        self._read_buffer = b""
+
+        self._conn = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self._conn.connect(str(unix_path))
 
         # When starting the connection, QEMU sends a greeting message
         # containing the `QMP` key. To finish the handshake, the command
@@ -40,7 +43,12 @@ class QMPClient:
                 raise RuntimeError("QMP returned an error: " + repr(result))
 
     def _write_message(self, message):
-        self._conn.write(json.dumps(message).encode("utf-8") + b"\r\n")
+        self._conn.sendall(json.dumps(message).encode("utf-8") + b"\r\n")
 
     def _read_message(self):
-        return json.loads(self._conn.read_until(b"\n").decode("utf-8").strip())
+        # Ensure we buffer enough data to receive a whole message
+        while b"\r\n" not in self._read_buffer:
+            self._read_buffer += self._conn.recv(4096)
+        message, self._read_buffer = self._read_buffer.split(b"\r\n", 1)
+
+        return json.loads(message.decode("utf-8"))
