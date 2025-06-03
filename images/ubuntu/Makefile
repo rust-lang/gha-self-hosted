@@ -1,7 +1,7 @@
 ENV = PACKER_CACHE_DIR=build/cache
 PACKER_ARGS = -var "git_sha=$(shell git rev-parse HEAD)"
 
-.PHONY: host clean x86_64-host aarch64-host
+.PHONY: host clean init x86_64-host x86_64-emul aarch64-host aarch64-emul
 
 host:
 	make $(shell uname -m)-host
@@ -9,21 +9,28 @@ host:
 clean:
 	rm -rf build
 
-x86_64-host:
-	rm -rf build/x86_64
+init:
+	$(ENV) packer init image.pkr.hcl
+
+x86_64-host: init
+	rm -rf build/packer-tmp
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -var arch=x86_64 image.pkr.hcl
+	mv build/packer-tmp/rootfs.qcow2 build/ubuntu-x86_64.qcow2
 
-x86_64-emul:
-	rm -rf build/x86_64
+x86_64-emul: init
+	rm -rf build/packer-tmp
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -var arch=x86_64 image.pkr.hcl
+	mv build/packer-tmp/rootfs.qcow2 build/ubuntu-x86_64.qcow2
 
-aarch64-host: build/qemu-efi-aarch64.fd
-	rm -rf build/aarch64
+aarch64-host: init build/qemu-efi-aarch64.fd
+	rm -rf build/packer-tmp
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=false -var arch=aarch64 -var firmware=build/qemu-efi-aarch64.fd image.pkr.hcl
+	mv build/packer-tmp/rootfs.qcow2 build/ubuntu-aarch64.qcow2
 
-aarch64-emul: build/qemu-efi-aarch64.fd
-	rm -rf build/aarch64
+aarch64-emul: init build/qemu-efi-aarch64.fd
+	rm -rf build/packer-tmp
 	$(ENV) packer build $(PACKER_ARGS) -var emulated=true -var arch=aarch64 -var firmware=build/qemu-efi-aarch64.fd image.pkr.hcl
+	mv build/packer-tmp/rootfs.qcow2 build/ubuntu-aarch64.qcow2
 
 # Running QEMU for AArch64 requires the QEMU_EFI.fd file to be provided. Some distributions like
 # Debian and Ubuntu package it, but the path they use is not consistent across distros. To avoid
