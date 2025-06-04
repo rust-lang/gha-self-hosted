@@ -90,6 +90,7 @@ class VM:
                 # New size of the disk.
                 self._disk,
             ],
+            stdout=subprocess.DEVNULL,
             check=True,
         )
 
