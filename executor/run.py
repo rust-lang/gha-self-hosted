@@ -1,5 +1,6 @@
 #!/usr/bin/env -S uv run
 
+from typing import List
 from executor.github import GitHub
 from executor.qemu import VM
 import argparse
@@ -7,16 +8,16 @@ import json
 import signal
 
 
-signal_vms = []
+running_vms: List[VM] = []
 
 
-def sigusr1_received(sig, frame):
-    for vm in signal_vms:
-        vm.sigusr1_received()
+def sigterm_received(sig, _frame):
+    for vm in running_vms:
+        vm.request_shutdown("SIGTERM signal")
 
 
 def run(cli):
-    signal.signal(signal.SIGUSR1, sigusr1_received)
+    signal.signal(signal.SIGTERM, sigterm_received)
 
     with open(cli.instance_spec) as f:
         instance = json.load(f)
@@ -25,7 +26,7 @@ def run(cli):
     runner = gh.create_runner(cli, instance)
 
     vm = VM(cli, instance, runner)
-    signal_vms.append(vm)
+    running_vms.append(vm)
 
     vm.run(gh)
     vm.cleanup()

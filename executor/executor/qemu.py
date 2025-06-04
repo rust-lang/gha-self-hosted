@@ -47,9 +47,10 @@ class VM:
         self._disk = instance["root-disk"]
         self._runner = runner
 
-        # Once the GitHub Actions build start, the VM won't reloaad anymore
-        # when a SIGUSR1 is received.
-        self._prevent_reloads = False
+        # Once the GitHub Actions build start, the VM won't shutdown anymore when requested by the
+        # outside world (for example due to a SIGTERM, or a new image being available), as that
+        # would kill the CI build running in the VM.
+        self._prevent_external_shutdowns = False
 
         self._arch = instance["arch"]
         if self._arch not in QEMU_ARCH:
@@ -141,16 +142,23 @@ class VM:
         try:
             self._process.wait()
         except KeyboardInterrupt:
-            self.shutdown()
+            self._shutdown()
 
         # Shutdown signal was successful, wait for clean shutdown
         try:
             if self._process is not None:
                 self._process.wait()
         except KeyboardInterrupt:
-            self.kill()
+            self._kill()
 
-    def shutdown(self):
+    def request_shutdown(self, reason):
+        if self._prevent_external_shutdowns:
+            log(f"did not shutdown due to {reason} because a build is running")
+        else:
+            log(f"shutting down the VM due to {reason}")
+            self._shutdown()
+
+    def _shutdown(self):
         if self._process is None:
             raise RuntimeError("can't shutdown a stopped VM")
 
@@ -163,14 +171,16 @@ class VM:
             qmp.shutdown_vm()
         except Exception as e:
             print("failed to gracefully shutdown the VM:", e)
-            self.kill()
+            self._kill()
             return
 
         log("sent shutdown signal to the VM")
 
-        Timer("graceful-shutdown-timeout", self.kill, GRACEFUL_SHUTDOWN_TIMEOUT).start()
+        Timer(
+            "graceful-shutdown-timeout", self._kill, GRACEFUL_SHUTDOWN_TIMEOUT
+        ).start()
 
-    def kill(self):
+    def _kill(self):
         if self._process is None:
             raise RuntimeError("can't kill a stopped VM")
 
@@ -182,13 +192,6 @@ class VM:
     def cleanup(self):
         shutil.rmtree(str(self._path))
 
-    def sigusr1_received(self):
-        if self._prevent_reloads:
-            log("did not reload as a build is currently running")
-        else:
-            log("reload signal received, shutting down the VM")
-            self.shutdown()
-
     def _gha_build_started(self):
-        self._prevent_reloads = True
-        Timer("vm-timeout", self.shutdown, self._vm_timeout).start()
+        self._prevent_external_shutdowns = True
+        Timer("vm-timeout", self._shutdown, self._vm_timeout).start()
