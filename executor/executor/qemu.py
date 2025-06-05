@@ -37,9 +37,9 @@ QEMU_ARCH = {
 
 
 class VM:
-    def __init__(self, cli, instance, runner):
+    def __init__(self, cli, instance, image, runner):
         self._cli = cli
-        self._base = instance["image"]
+        self._base = image
         self._vm_timeout = instance["timeout-seconds"]
         self._ssh_port = instance["ssh-port"]
         self._cpu = instance["cpu-cores"]
