@@ -11,7 +11,6 @@ PACKAGES=(
     docker.io
     docker-buildx
     jq
-    python-is-python2
     python3-pip
 
     # Needed by install-awscli
