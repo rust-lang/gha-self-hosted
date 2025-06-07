@@ -41,7 +41,6 @@ class VM:
         self._cli = cli
         self._base = image
         self._vm_timeout = instance["timeout-seconds"]
-        self._ssh_port = instance["ssh-port"]
         self._cpu = instance["cpu-cores"]
         self._ram = instance["ram"]
         self._disk = instance["root-disk"]
@@ -119,9 +118,6 @@ class VM:
             # Enable networking inside the VM.
             "-net",
             "nic,model=virtio",
-            # Forward the 22 port on the host, as the configured SSH port.
-            "-net",
-            "user,hostfwd=tcp::" + str(self._ssh_port) + "-:22",
             # Pass the jitconfig to the runner using systemd credentials.
             "-smbios",
             f"type=11,value=io.systemd.credential:gha-jitconfig={self._runner.jitconfig}",
@@ -131,6 +127,10 @@ class VM:
             "unix:" + str(self._qmp_shutdown_path) + ",server,nowait",
         ]
         cmd += QEMU_ARCH[self._arch]["flags"]
+
+        # We only bind to SSH when a port is requested.
+        if self._cli.ssh_port is not None:
+            cmd += ["-net", "user,hostfwd=tcp::" + str(self._cli.ssh_port) + "-:22"]
 
         if "bios" in QEMU_ARCH[self._arch]:
             cmd += ["-bios", QEMU_ARCH[self._arch]["bios"]]
