@@ -81,6 +81,12 @@ def main():
         type=Path,
     )
 
+    parser.add_argument(
+        "--ssh-port",
+        help="Port to bind the SSH server to",
+        type=int,
+    )
+
     args = parser.parse_args()
     run(args)
 

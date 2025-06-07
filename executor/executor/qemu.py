@@ -41,7 +41,6 @@ class VM:
         self._cli = cli
         self._base = image
         self._vm_timeout = instance["timeout-seconds"]
-        self._ssh_port = instance["ssh-port"]
         self._cpu = instance["cpu-cores"]
         self._ram = instance["ram"]
         self._disk = instance["root-disk"]
@@ -119,9 +118,6 @@ class VM:
             # Enable networking inside the VM.
             "-net",
             "nic,model=virtio",
-            # Forward the 22 port on the host, as the configured SSH port.
-            "-net",
-            "user,hostfwd=tcp::" + str(self._ssh_port) + "-:22",
             # Pass the jitconfig to the runner using systemd credentials.
             "-smbios",
             f"type=11,value=io.systemd.credential:gha-jitconfig={self._runner.jitconfig}",
@@ -132,11 +128,28 @@ class VM:
         ]
         cmd += QEMU_ARCH[self._arch]["flags"]
 
+        net_extra_params = []
+        if self._cli.ssh_port is not None:
+            # We only bind to SSH when a port is requested.
+            net_extra_params.append(f"hostfwd=tcp:127.0.0.1:{self._cli.ssh_port}-:22")
+        cmd += ["-net", "user" + "".join(f",{param}" for param in net_extra_params)]
+
         if "bios" in QEMU_ARCH[self._arch]:
             cmd += ["-bios", QEMU_ARCH[self._arch]["bios"]]
 
         log("starting the virtual machine")
         self._process = subprocess.Popen(cmd, preexec_fn=preexec_fn)
+
+        if self._cli.ssh_port is not None:
+            print()
+            print("You can connect to the VM with SSH:")
+            print()
+            print(
+                "    "
+                "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
+                f"-p {self._cli.ssh_port} manage@127.0.0.1"
+            )
+            print()
 
         GitHubRunnerStatusWatcher(gh, self._runner.id, self._gha_build_started).start()
 
