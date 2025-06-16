@@ -88,7 +88,7 @@ source "qemu" "ubuntu" {
 }
 
 locals {
-  ubuntu_version = "20.04"
+  ubuntu_version = "24.04"
   ubuntu_url     = "https://cloud-images.ubuntu.com/releases/${local.ubuntu_version}/release"
 }
 

@@ -3,8 +3,10 @@ Description=Regenerate SSH host keys
 Before=ssh.service
 
 [Service]
-ExecStart=/usr/local/bin/regenerate-ssh-host-keys
 Type=oneshot
+# Regenerate the SSH host keys, which were deleted during VM creation.
+ExecStart=/usr/sbin/dpkg-reconfigure openssh-server
+Environment=DEBIAN_FRONTEND=noninteractive
 
 [Install]
 WantedBy=multi-user.target

@@ -5,8 +5,6 @@ IFS=$'\n\t'
 
 # Install a small service that regenerates SSH host keys on boot.
 sudo cp /tmp/packer-files/regenerate-ssh-host-keys.service /etc/systemd/system/regenerate-ssh-host-keys.service
-sudo cp /tmp/packer-files/regenerate-ssh-host-keys.sh /usr/local/bin/regenerate-ssh-host-keys
-sudo chmod +x /usr/local/bin/regenerate-ssh-host-keys
 sudo systemctl daemon-reload
 sudo systemctl enable regenerate-ssh-host-keys.service # Will start at the next boot.
 
