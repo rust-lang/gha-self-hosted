@@ -2,122 +2,128 @@
 
 This directory contains the Python script used to spawn ephemeral VMs for the
 Rust CI. The script starts VMs using QEMU, and is designed to work with VM
-images produced by this repository.
+images produced by this repository. This README only documents how an user
+should use the script: technical documentation on how the script works is
+present as comments inside the script itself.
 
-This README only documents how an user should use the script: technical
-documentation on how the script works is present as comments inside the script
-itself.
+## Command-line interface
 
-## Configuring the instances
+The `./run.py` script accepts the following command-line arguments:
 
-The script reads the `instances.json` file in the current working directory at
-startup, loading the definition of each supported virtual machine. The file
-contains a list of instance objects, each with the following keypairs:
+* **`INSTANCE_SPEC`** _(required)_: the JSON file describing the instance. See
+  ["Instance specifications"](#instance-specifications) for more information.
+* **`--github-client-id <id>`** _(required)_: the Client ID of the GitHub App.
+* **`--github-private-key <path>`** _(required)_: the private key of the GitHub App.
+* **`--github-org`** _(required)_: the GitHub org to register the runner into.
+* **`--runner-group-id`** _(required)_: the ID of the [runner
+  group][runner-group] to register the runner into.
+* **`--images-server`**: the URL of the HTTP server hosting the VM images. By
+  default this points to [our production server][images-prod]. The flag allows
+  you to override it when testing things locally: see ["Testing local
+  images"](#testing-local-images) for more information.
+* **`--images-cache-dir`**: the directory to cache downloaded VM images in. If
+  it's not provided, no images will be cached. Note that a cache must not be
+  accessed by multiple instances of the executor concurrently.
+* **`--ssh-port`**: host port to bind the VM's SSH port into. If it's not
+  provided, the VM's SSH server will not be accessible from the host.
 
-* **name**: name of the instance.
-* **image**: path to the QCOW2 file of the base image.
-* **arch**: the architecture of the virtual machine (`x86_64` or `aarch64`).
-* **cpu-cores**: amount of CPU cores to allocate to the VM.
-* **ram**: amount of RAM to allocate to the VM.
-* **root-disk**: amount of disk space to allocate to the VM.
-* **timeout-seconds**: number of seconds after the VM is shut down.
-* **ssh-port**: port number to assign to the VM's SSH server. Documentation on
-  how to log into the VM is available below.
-* **config**: arbitrary object containing instance-specific configuration. This
-  data will be available inside the VM, and can be used by the base image to
-  configure itself. A configuration pre-processor is available, allowing to
-  fetch some configuration values at startup time. Documentation on how to
-  access the configuration inside the VM is available below.
+## Instance specifications
 
-An example of such file is:
+An image specification is a JSON file describing what the VM should look like.
+It must contain a JSON object with the following keys:
+
+* **label**: the GitHub Actions label assigned to the runner. You will need to
+  use the label in the `runs-on` GitHub Actions YAML key to assign a job to a
+  runner. For example, a label of "foo" will require you to do `runs-on: foo` in
+  the YAML.
+* **image**: the name of the image to use for the VM. It must correspond with
+  [one of the images available on the image server][ubuntu-readme].
+* **arch**: the architecture of the VM. It currently supports either `x86_64` or
+  `aarch64`.
+* **cpu-cores**: the number of CPU cores to allocate to the VM.
+* **ram**: the amount of RAM to allocate to the VM. Use the `G` suffix to
+  specify the gigabytes unit.
+* **root-disk**: the amount of disk space to allocate to the VM's root disk. Use
+  the `G` suffix to specify the gigabytes unit.
+* **timeout-seconds**: maximum amount of time (in seconds) a job is allowed to
+  run before the VM is killed. 
+
+## Starting a sample VM
+
+To start a sample VM, write this image specification to a file (let's assume
+`instance.json`):
 
 ```json
-[
-    {
-        "name": "vm-1",
-        "image": "../images/ubuntu/build/x86_64/rootfs.qcow2",
-        "arch": "x86_64",
-        "cpu-cores": 4,
-        "ram": "4G",
-        "root-disk": "80G",
-        "timeout-seconds": 14400,
-        "ssh-port": 2201,
-        "config": {
-            "repo": "rust-lang-ci/rust",
-            "token": "${{ gha-install-token:rust-lang-ci/rust }}",
-            "whitelisted-event": "push"
-        }
-    },
-    {
-        "name": "vm-2",
-        "image": "../images/ubuntu/build/aarch64/rootfs.qcow2",
-        "arch": "aarch64",
-        "cpu-cores": 2,
-        "ram": "2G",
-        "root-disk": "20G",
-        "timeout-seconds": 14400,
-        "ssh-port": 2202,
-        "config": {
-            "repo": "rust-lang-ci/rust",
-            "token": "${{ gha-install-token:rust-lang-ci/rust }}",
-            "whitelisted-event": "push"
-        }
-    }
-]
+{
+    "label": "sample",
+    "image": "ubuntu-x86_64",
+    "arch": "x86_64",
+    "cpu-cores": 4,
+    "ram": "4G",
+    "root-disk": "80G",
+    "timeout-seconds": 3600
+}
 ```
 
-## Configuration pre-processor
+Then create a GitHub App with the permission to manage self-hosted runners for
+an organization, create a private key pair for it, and install it in an
+organization you control. Finally, in the same organization create a runner
+group and write down its ID (you can find it in the URL).
 
-The script allows to fetch some configuration values dynamically right before
-the virtual machine is started. A limited number of functions is available.
+Once all of this is done, you can start a VM:
 
-### Fetching the GHA installation token
-
-To fetch the GitHub Actions runner installation token for a repository, you can
-set the following value in the config:
-
-```
-${{ gha-install-token:ORGANIZATION/REPOSITORY }}
-```
-
-When this parameter is present, the script will call the GitHub API to fetch a
-new installation token. For that to work the `GITHUB_TOKEN` environment
-variable needs to be set, containing a valid GitHub API token.
-
-## Starting an instance
-
-To start an instance, run the following command inside the directory containing
-the `instances.json` file:
-
-```
-./run.py IMAGE-NAME
+```bash
+./run.py instance.json \
+  --github-client-id 12345 \
+  --github-private-key key.pem \
+  --github-org emilyorg \
+  --runner-group-id 12345
 ```
 
-The command will start an ephemeral copy of the VM and then delete it once the
-VM shuts down.
+## Testing local images
 
-## Logging into the instance
+By default, the executor script downloads images from our production
+infrastructure, but it's possible to override that and use locally built images.
+To do so, you can execute the `local-images-server.py` script, which serves all
+images present in a directory in the format the executor script expects:
 
-The script allows you to connect to the spawned VM through SSH, through the
-`ssh-port` defined in the instance configuration. You can connect by running:
-
+```bash
+./local-images-server.py ../images/ubuntu/build
 ```
-ssh -p <ssh-port> manage@localhost
-```
 
-The password for the `manage` user in our VMs is `password`. The SSH server
-takes a while to start up, so you might have to wait before being able to log
-in. Keep in mind that our VM images regenerate the SSH host keys every time
-they boot, so you'll likely get host key mismatch errors when you try to
-connect.
+The script will print the command line flags to pass to the executor script.
+Note that you will need to restart the script if you change any image, as
+`local-images-server.py` does not implement auto-reloading.
 
-## Reading the instance configuration inside the VM
+## Runtime behavior of the executor
 
-The script will mount a virtual CD-ROM inside each virtual machine, containing
-a file called `instance.json`. The file will contain a JSON document with a
-copy of the `name` and `config` keys from the host's `instances.json`.
+The executor script will use the GitHub credentials to generate a [just-in-time
+registration token][jit] and pass it to the VM in the `gha-jitconfig` [systemd
+credential]. It will then start the VM with QEMU, and assume the image will
+start a GitHub Actions runner with the token passed into it.
 
-It's possible for the VM to eject the virtual CD-ROM once it's done reading its
-contents, for example to prevent future untrusted processes inside the VM from
-reading it. Once the CD-ROM tray is opened, the script will automatically
-remove the CD-ROM.
+The executor will periodically poll the GitHub API to determine when the runner
+starts executing a job. When that happens, it will start a timer (as defined in
+the `timeout-seconds` key of the [instance
+specification](#instance-specifications)) and forcibly shut down the machine
+when the timer expires. This prevents a compromised VM from running forever.
+
+When the executor receives a SIGTERM, it will check whether the VM is currently
+executing a job. The executor will gracefully shut down the VM only if it's not
+running any job, to avoid terminating it.
+
+When the executor receives a SIGINT (Ctrl+C), it will gracefully shutdown the
+VM, regardless of whether it's executing a job. Sending a second SIGINT will
+forcefully kill the VM and exit immediately.
+
+The executor will also periodically check whether a new version of the image is
+available on the images server. If a new one is available, and there is no job
+currently running on the VM, the executor will gracefully shut down the VM and
+exit. It's then the responsibility of the init system to restart the executor,
+which will pick the new image.
+
+[runner-group]: https://docs.github.com/en/enterprise-cloud@latest/actions/how-tos/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners-using-groups
+[images-prod]: https://gha-self-hosted-images.infra.rust-lang.org
+[ubuntu-readme]: ../images/ubuntu/README.md
+[jit]: https://docs.github.com/en/enterprise-cloud@latest/actions/how-tos/security-for-github-actions/security-guides/security-hardening-for-github-actions#using-just-in-time-runners\
+[systemd credential]: https://systemd.io/CREDENTIALS/
