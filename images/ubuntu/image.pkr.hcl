@@ -52,7 +52,7 @@ source "qemu" "ubuntu" {
   disk_discard   = "unmap"
   disk_image     = true
   disk_interface = "virtio-scsi"
-  disk_size      = "5G"
+  disk_size      = "10G"
 
   # Serve the cloud-init/ directory with the QEMU provisioner's HTTP server.
   # This allows us to do the initial configuration (adding the SSH user) with cloud-init.
