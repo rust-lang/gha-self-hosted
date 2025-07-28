@@ -1,0 +1,15 @@
+[project]
+name = "executor"
+version = "0.0.0"
+requires-python = ">= 3.12"
+dependencies = [
+    "cryptography ~= 45.0.3",
+    "pyjwt ~= 2.10.1",
+    "requests ~= 2.32.3",
+    "zstandard ~= 0.23.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.12.3",
+]

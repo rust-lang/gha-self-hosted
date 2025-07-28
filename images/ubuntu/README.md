@@ -23,10 +23,10 @@ which is available at the [`/latest`][cdn-latest] URL. Then, access the relevant
 URL depending on the image you want, replacing `${commit}` with the commit hash
 you previously retrieved:
 
-| Architecture | Compression | URL template                                 |
-| ------------ | ----------- | -------------------------------------------- |
-| x86_64       | zstandard   | `/images/${commit}/ubuntu-x86_64.qcow2.zst`  |
-| AArch64      | zstandard   | `/images/${commit}/ubuntu-aarch64.qcow2.zst` |
+| Image name       | Architecture | Compression | URL template                                 |
+| ---------------- | ------------ | ----------- | -------------------------------------------- |
+| `ubuntu-x86_64`  | x86_64       | zstandard   | `/images/${commit}/ubuntu-x86_64.qcow2.zst`  |
+| `ubuntu-aarch64` | AArch64      | zstandard   | `/images/${commit}/ubuntu-aarch64.qcow2.zst` |
 
 ### Rolling back to a previously built image
 
@@ -48,7 +48,7 @@ available:
 
 | Architecture | Native build        | Emulated build      | Output path                  |
 | ------------ | ------------------- | ------------------- | ---------------------------- |
-| x86_64       | `make x86_64-host ` | `make x86_64-emul`  | `build/ubuntu-x86_64.qcow2`  |
+| x86_64       | `make x86_64-host`  | `make x86_64-emul`  | `build/ubuntu-x86_64.qcow2`  |
 | AArch64      | `make aarch64-host` | `make aarch64-emul` | `build/ubuntu-aarch64.qcow2` |
 
 ## Build process overview

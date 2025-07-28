@@ -1,2 +1,5 @@
 /images/*/build
 /executor/instances.json
+
+__pycache__
+*.py[co]
