@@ -9,8 +9,10 @@ After=network.target
 ExecStart=/bin/sh -c './run.sh --jitconfig "$(cat ${CREDENTIALS_DIRECTORY}/gha-jitconfig)"'
 LoadCredential=gha-jitconfig
 
-# Power off the system when a CI run finishes.
-ExecStopPost=/usr/bin/sudo /usr/bin/systemctl poweroff
+# Power off the system when a CI run finishes. If the gha-inhibit-shutdown systemd credential
+# (https://systemd.io/CREDENTIALS/) is set, the shutdown will not happen.
+ExecStopPost=/bin/sh -c '[ -f "${CREDENTIALS_DIRECTORY}/gha-inhibit-shutdown" ] || /usr/bin/sudo /usr/bin/systemctl poweroff'
+LoadCredential=gha-inhibit-shutdown
 
 User=gha
 Group=gha
