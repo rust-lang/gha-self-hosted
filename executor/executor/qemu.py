@@ -1,3 +1,4 @@
+from executor.http_server import CredentialServer
 from .github import GitHubRunnerStatusWatcher
 from .qmp import QMPClient
 from .utils import log, Timer
@@ -119,10 +120,8 @@ class VM:
         if self._cli.no_shutdown_after_job:
             qemu.smbios_11.append("value=io.systemd.credential:gha-inhibit-shutdown=1")
 
-        # Pass the jitconfig to the runner using systemd credentials.
-        qemu.smbios_11.append(
-            f"value=io.systemd.credential:gha-jitconfig={self._runner.jitconfig}",
-        )
+        jitconfig = CredentialServer("gha-jitconfig-url", self._runner.jitconfig)
+        jitconfig.configure_qemu(qemu)
 
         log("starting the virtual machine")
         self._process = qemu.spawn()

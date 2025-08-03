@@ -3,11 +3,12 @@ Description=GitHub Actions Runner
 After=network.target
 
 [Service]
-# Start the runner using just-in-time configuration. The jitconfig is loaded using systemd's
-# credentials management (https://systemd.io/CREDENTIALS/), which allows it to be set by the
-# hypervisor with a single command-line flag.
-ExecStart=/bin/sh -c './run.sh --jitconfig "$(cat ${CREDENTIALS_DIRECTORY}/gha-jitconfig)"'
-LoadCredential=gha-jitconfig
+# Start the runner using just-in-time configuration. The jitconfig is loaded from a temporary HTTP
+# server spawned in the host, whose URL is passed to the VM using systemd's credentials management
+# (https://systemd.io/CREDENTIALS/). This allows the URL to be set by the hypervisor with a single
+# command-line flag.
+ExecStart=/bin/sh -c './run.sh --jitconfig "$(curl --fail $(cat ${CREDENTIALS_DIRECTORY}/gha-jitconfig-url))"'
+LoadCredential=gha-jitconfig-url
 
 # Power off the system when a CI run finishes. If the gha-inhibit-shutdown systemd credential
 # (https://systemd.io/CREDENTIALS/) is set, the shutdown will not happen.
