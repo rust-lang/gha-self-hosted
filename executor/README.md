@@ -24,6 +24,9 @@ The `./run.py` script accepts the following command-line arguments:
 * **`--images-cache-dir`**: the directory to cache downloaded VM images in. If
   it's not provided, no images will be cached. Note that a cache must not be
   accessed by multiple instances of the executor concurrently.
+* **`--no-shutdown-after-job`**: ask the VM to not shut down after executing a
+  job. See ["Troubleshooting the VM immediately
+  exiting"](#troubleshooting-the-vm-immediately-exiting).
 * **`--ssh-port`**: host port to bind the VM's SSH port into. If it's not
   provided, the VM's SSH server will not be accessible from the host.
 
@@ -121,6 +124,17 @@ available on the images server. If a new one is available, and there is no job
 currently running on the VM, the executor will gracefully shut down the VM and
 exit. It's then the responsibility of the init system to restart the executor,
 which will pick the new image.
+
+## Troubleshooting the VM immediately exiting
+
+The [Ubuntu images][ubuntu-readme] are configured to shut down as soon as the
+GitHub Actions runner exits. This can result in the VM shutting down as soon as
+it boots when the runner fails to start, preventing you from logging into the VM
+and debugging the failure.
+
+When that happens, you should pass the `--no-shutdown-after-job` CLI flag to
+`run.py`. Doing so will set the `gha-inhibit-shutdown` [systemd credential],
+which tells the image to not shutdown after the GitHub Actions runner exits.
 
 [runner-group]: https://docs.github.com/en/enterprise-cloud@latest/actions/how-tos/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners-using-groups
 [images-prod]: https://gha-self-hosted-images.infra.rust-lang.org

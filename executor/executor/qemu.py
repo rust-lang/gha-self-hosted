@@ -118,9 +118,6 @@ class VM:
             # Enable networking inside the VM.
             "-net",
             "nic,model=virtio",
-            # Pass the jitconfig to the runner using systemd credentials.
-            "-smbios",
-            f"type=11,value=io.systemd.credential:gha-jitconfig={self._runner.jitconfig}",
             # This QMP port is used by the shutdown() method to send the
             # shutdown signal to the QEMU VM instead of killing it.
             "-qmp",
@@ -136,6 +133,26 @@ class VM:
 
         if "bios" in QEMU_ARCH[self._arch]:
             cmd += ["-bios", QEMU_ARCH[self._arch]["bios"]]
+
+        smbios_11_params = []
+
+        # Pass the credential asking the runner not to shutdown. This is the first credential we add
+        # because it has to be passed to the VM even if the following credentials get truncated or
+        # similar (as this credential is used for debugging).
+        if self._cli.no_shutdown_after_job:
+            smbios_11_params.append(
+                "value=io.systemd.credential:gha-inhibit-shutdown=1"
+            )
+
+        # Pass the jitconfig to the runner using systemd credentials.
+        smbios_11_params.append(
+            f"value=io.systemd.credential:gha-jitconfig={self._runner.jitconfig}",
+        )
+
+        cmd += [
+            "-smbios",
+            f"type=11,{','.join(smbios_11_params)}",
+        ]
 
         log("starting the virtual machine")
         self._process = subprocess.Popen(cmd, preexec_fn=preexec_fn)

@@ -82,6 +82,12 @@ def main():
     )
 
     parser.add_argument(
+        "--no-shutdown-after-job",
+        help="Ask the VM not to shutdown after completing a GitHub Actions job",
+        action="store_true",
+    )
+
+    parser.add_argument(
         "--ssh-port",
         help="Port to bind the SSH server to",
         type=int,

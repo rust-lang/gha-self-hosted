@@ -100,7 +100,9 @@ Each time it boots, the VM will:
   `files/start-gha-runner.py`).
 
 The GitHub Actions runner will then listen for jobs, and execute a single job,
-once the job finishes, the runner will shut down the VM.
+once the job finishes, the runner will shut down the VM. The shutdown can be
+inhibited by setting the `gha-inhibit-shutdown` [systemd credentials] (useful
+when debugging runner failures).
 
 The VM provides passwordless sudo access via SSH through the `manage` user
 (password: `password`).
