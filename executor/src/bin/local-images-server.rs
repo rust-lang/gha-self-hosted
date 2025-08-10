@@ -103,7 +103,8 @@ impl Image {
     }
 }
 
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() -> Result<(), Error> {
     let cli = Cli::parse();
     let images = Arc::new(prepare_images(&cli.images_dir)?);
     let router = prepare_axum(images);
@@ -115,12 +116,8 @@ fn main() -> Result<(), Error> {
     eprintln!("    --images-server http://localhost:{port}");
     eprintln!("");
 
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()?;
-
-    let listener = runtime.block_on(TcpListener::bind(format!("127.0.0.1:{port}")))?;
-    runtime.block_on(axum::serve(listener, router).into_future())?;
+    let listener = TcpListener::bind(format!("127.0.0.1:{port}")).await?;
+    axum::serve(listener, router).await?;
 
     Ok(())
 }

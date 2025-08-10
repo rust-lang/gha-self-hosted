@@ -1,14 +1,14 @@
 # Ephemeral VMs executor
 
-This directory contains the Python script used to spawn ephemeral VMs for the
-Rust CI. The script starts VMs using QEMU, and is designed to work with VM
+This directory contains the Rust program used to spawn ephemeral VMs for the
+Rust CI. The program starts VMs using QEMU, and is designed to work with VM
 images produced by this repository. This README only documents how an user
-should use the script: technical documentation on how the script works is
-present as comments inside the script itself.
+should use the script: technical documentation on how the program works is
+present as comments inside the program itself.
 
 ## Command-line interface
 
-The `./run.py` script accepts the following command-line arguments:
+The `gha-vm` binary accepts the following command-line arguments:
 
 * **`INSTANCE_SPEC`** _(required)_: the JSON file describing the instance. See
   ["Instance specifications"](#instance-specifications) for more information.
@@ -76,7 +76,8 @@ group and write down its ID (you can find it in the URL).
 Once all of this is done, you can start a VM:
 
 ```bash
-./run.py instance.json \
+cargo run --bin gha-vm \
+  instance.json \
   --github-client-id 12345 \
   --github-private-key key.pem \
   --github-org emilyorg \
@@ -100,7 +101,7 @@ it does not implement auto-reloading.
 
 ## Runtime behavior of the executor
 
-The executor script will use the GitHub credentials to generate a [just-in-time
+The executor program will use the GitHub credentials to generate a [just-in-time
 registration token][jit] and start a secured HTTP server providing that token to
 the future VM. It will then start the VM with QEMU, passing to it the URL of the
 HTTP server in the `gha-jitconfig-url` [systemd credential], and assume the
@@ -134,7 +135,7 @@ it boots when the runner fails to start, preventing you from logging into the VM
 and debugging the failure.
 
 When that happens, you should pass the `--no-shutdown-after-job` CLI flag to
-`run.py`. Doing so will set the `gha-inhibit-shutdown` [systemd credential],
+`gha-vm`. Doing so will set the `gha-inhibit-shutdown` [systemd credential],
 which tells the image to not shutdown after the GitHub Actions runner exits.
 
 [runner-group]: https://docs.github.com/en/enterprise-cloud@latest/actions/how-tos/hosting-your-own-runners/managing-self-hosted-runners/managing-access-to-self-hosted-runners-using-groups
