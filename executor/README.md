@@ -85,18 +85,18 @@ Once all of this is done, you can start a VM:
 
 ## Testing local images
 
-By default, the executor script downloads images from our production
-infrastructure, but it's possible to override that and use locally built images.
-To do so, you can execute the `local-images-server.py` script, which serves all
-images present in a directory in the format the executor script expects:
+By default, the executor downloads images from our production infrastructure,
+but it's possible to override that and use locally built images. To do so, you
+can execute the `local-images-server` binary, which serves all images present in
+a directory in the format the executor expects:
 
 ```bash
-./local-images-server.py ../images/ubuntu/build
+cargo run --bin local-images-server ../images/ubuntu/build
 ```
 
-The script will print the command line flags to pass to the executor script.
-Note that you will need to restart the script if you change any image, as
-`local-images-server.py` does not implement auto-reloading.
+The binary will print the command line flags to pass to the executor. Note that
+you will need to restart the `local-images-server` if you change any image, as
+it does not implement auto-reloading.
 
 ## Runtime behavior of the executor
 

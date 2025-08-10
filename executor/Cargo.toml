@@ -1,0 +1,16 @@
+[package]
+name = "executor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.98"
+axum = { version = "0.8.4", default-features = false, features = ["http1", "tokio"] }
+clap = { version = "4.5.43", default-features = false, features = ["std", "help", "usage", "derive"] }
+getrandom = "0.3.3"
+hex = "0.4.3"
+sha2 = "0.10.9"
+tempfile = "3.20.0"
+tokio = { version = "1.47.1", features = ["rt", "time", "net", "fs", "io-util"] }
+tokio-util = { version = "0.7.16", features = ["io"] }
+zstd = "0.13.3"
