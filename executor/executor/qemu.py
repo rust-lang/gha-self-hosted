@@ -1,6 +1,10 @@
+from executor.http_server import CredentialServer
 from .github import GitHubRunnerStatusWatcher
 from .qmp import QMPClient
 from .utils import log, Timer
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import List, Optional
 import os
 import pathlib
 import shutil
@@ -15,23 +19,18 @@ GRACEFUL_SHUTDOWN_TIMEOUT = 60
 # Architecture-specific QEMU flags and BIOS blob URL.
 QEMU_ARCH = {
     "x86_64": {
-        "flags": [
-            # Standard x86_64 machine with hardware acceleration.
-            "-machine",
-            "pc,accel=kvm",
-        ],
+        "bios": None,
+        "cpu_model": None,
+        # Standard x86_64 machine with hardware acceleration.
+        "machine": "pc,accel=kvm",
     },
     "aarch64": {
-        "flags": [
-            # Virtual AArch64 machine with hardware acceleration.
-            "-machine",
-            "virt,gic_version=3,accel=kvm",
-            # Use the host's CPU variant.
-            "-cpu",
-            "host",
-        ],
         # Installed with `sudo apt-get install qemu-efi-aarch64`
         "bios": "/usr/share/qemu-efi-aarch64/QEMU_EFI.fd",
+        # Use the host's CPU variant.
+        "cpu_model": "host",
+        # Virtual AArch64 machine with hardware acceleration.
+        "machine": "virt,gic_version=3,accel=kvm",
     },
 }
 
@@ -97,65 +96,35 @@ class VM:
         if self._process is not None:
             raise RuntimeError("this VM was already started")
 
-        def preexec_fn():
-            # Don't forward signals to QEMU
-            os.setpgrp()
+        qemu = QemuInvocation(
+            cpu_cores=self._cpu,
+            memory=self._ram,
+            drive=f"file={self._path_root},media=disk,if=virtio",
+            bios=QEMU_ARCH[self._arch]["bios"],
+            cpu_model=QEMU_ARCH[self._arch]["cpu_model"],
+            machine=QEMU_ARCH[self._arch]["machine"],
+            qemu_binary=f"qemu-system-{self._arch}",
+        )
 
-        cmd = [
-            f"qemu-system-{self._arch}",
-            # Reserved RAM for the virtual machine.
-            "-m",
-            str(self._ram),
-            # Allocated cores for the virtual machine.
-            "-smp",
-            str(self._cpu),
-            # Prevent QEMU from showing a graphical console window.
-            "-display",
-            "none",
-            # Mount the VM image as the root drive.
-            "-drive",
-            "file=" + str(self._path_root) + ",media=disk,if=virtio",
-            # Enable networking inside the VM.
-            "-net",
-            "nic,model=virtio",
-            # This QMP port is used by the shutdown() method to send the
-            # shutdown signal to the QEMU VM instead of killing it.
-            "-qmp",
-            "unix:" + str(self._qmp_shutdown_path) + ",server,nowait",
-        ]
-        cmd += QEMU_ARCH[self._arch]["flags"]
+        # This QMP port is used by the shutdown() method to send the
+        # shutdown signal to the QEMU VM instead of killing it.
+        qemu.qmp_sockets.append(self._qmp_shutdown_path)
 
-        net_extra_params = []
         if self._cli.ssh_port is not None:
             # We only bind to SSH when a port is requested.
-            net_extra_params.append(f"hostfwd=tcp:127.0.0.1:{self._cli.ssh_port}-:22")
-        cmd += ["-net", "user" + "".join(f",{param}" for param in net_extra_params)]
-
-        if "bios" in QEMU_ARCH[self._arch]:
-            cmd += ["-bios", QEMU_ARCH[self._arch]["bios"]]
-
-        smbios_11_params = []
+            qemu.net_user.append(f"hostfwd=tcp:127.0.0.1:{self._cli.ssh_port}-:22")
 
         # Pass the credential asking the runner not to shutdown. This is the first credential we add
         # because it has to be passed to the VM even if the following credentials get truncated or
         # similar (as this credential is used for debugging).
         if self._cli.no_shutdown_after_job:
-            smbios_11_params.append(
-                "value=io.systemd.credential:gha-inhibit-shutdown=1"
-            )
+            qemu.smbios_11.append("value=io.systemd.credential:gha-inhibit-shutdown=1")
 
-        # Pass the jitconfig to the runner using systemd credentials.
-        smbios_11_params.append(
-            f"value=io.systemd.credential:gha-jitconfig={self._runner.jitconfig}",
-        )
-
-        cmd += [
-            "-smbios",
-            f"type=11,{','.join(smbios_11_params)}",
-        ]
+        jitconfig = CredentialServer("gha-jitconfig-url", self._runner.jitconfig)
+        jitconfig.configure_qemu(qemu)
 
         log("starting the virtual machine")
-        self._process = subprocess.Popen(cmd, preexec_fn=preexec_fn)
+        self._process = qemu.spawn()
 
         if self._cli.ssh_port is not None:
             print()
@@ -226,3 +195,62 @@ class VM:
     def _gha_build_started(self):
         self._prevent_external_shutdowns = True
         Timer("vm-timeout", self._shutdown, self._vm_timeout).start()
+
+
+@dataclass
+class QemuInvocation:
+    bios: Optional[str]
+    cpu_cores: int
+    cpu_model: Optional[str]
+    drive: str
+    machine: str
+    memory: int
+    qemu_binary: str
+
+    qmp_sockets: List[Path] = field(default_factory=list)
+    net_user: List[str] = field(default_factory=list)
+    smbios_11: List[str] = field(default_factory=list)
+
+    def spawn(self) -> subprocess.Popen:
+        def preexec_fn():
+            # Don't forward signals to QEMU
+            os.setpgrp()
+
+        cmd = [
+            self.qemu_binary,
+            # Machine to emulate.
+            "-machine",
+            self.machine,
+            # Reserved RAM for the virtual machine.
+            "-m",
+            str(self.memory),
+            # Allocated cores for the virtual machine.
+            "-smp",
+            str(self.cpu_cores),
+            # Prevent QEMU from showing a graphical console window.
+            "-display",
+            "none",
+            # Mount the VM image as the root drive.
+            "-drive",
+            self.drive,
+            # Enable networking inside the VM.
+            "-net",
+            "nic,model=virtio",
+            # Port forwarding configuration.
+            "-net",
+            "user" + "".join(f",{param}" for param in self.net_user),
+        ]
+
+        if self.cpu_model is not None:
+            cmd += ["-cpu", self.cpu_model]
+
+        if self.bios is not None:
+            cmd += ["-bios", self.bios]
+
+        for socket in self.qmp_sockets:
+            cmd += ["-qmp", f"unix:{socket},server,nowait"]
+
+        for param in self.smbios_11:
+            cmd += ["-smbios", f"type=11,{param}"]
+
+        return subprocess.Popen(cmd, preexec_fn=preexec_fn)

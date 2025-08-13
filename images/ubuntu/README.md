@@ -78,14 +78,25 @@ configuration.
 
 ## Image runtime requirements
 
-The image requires the `gha-jitconfig` [systemd credential] to be set by the
-hypervisor, containing the encoded just-in-time runner configuration retrieved
-from the GitHub API ([repositories][jit-repo], [organizations][jit-org], or
-[enterprises][jit-enterprise]). On QEMU, you can set it with this flag:
+The image requires the `gha-jitconfig-url` [systemd credential] to be set by the
+hypervisor, containing the URL at which the encoded just-in-time runner
+configuration can be retrieved. On QEMU, you can set it with this flag:
 
 ```
--smbios type=11,value=io.systemd.credential:gha-jitconfig=CONFIG_GOES_HERE
+-smbios type=11,value=io.systemd.credential:gha-jitconfig-url=URL_GOES_HERE
 ```
+
+The recommendation is to retrieve the just-in-time configuration in the host
+(using GitHub's API for [repositories][jit-repo], [organizations][jit-org], or
+[enterprises][jit-enterprise]), and then spin up a temporary HTTP server to let
+the VM request it. This prevents adding any actual GitHub token inside the VM:
+
+> [!NOTE]
+>
+> Originally the just-in-time configuration was provided directly in the systemd
+> credential, but in August 2025 we ran into problems where systemd would
+> truncate it. Since the jit configuration is fairly long, we then opted to pass
+> it out-of-band with the approach described above.
 
 ## Image runtime behavior
 
@@ -95,9 +106,8 @@ Each time it boots, the VM will:
   `files/regenerate-ssh-host-keys.sh`).
 * Regenerate the SSH host keys, to avoid reusing the keys baked into the image
   (implemented in `files/regenerate-ssh-host-keys.sh`).
-* Mount the virtual block device (see "Image runtime requirements"), load the
-  runner configuration from it, and start the runner (implemented in
-  `files/start-gha-runner.py`).
+* Fetch the runner just-in-time configuration (see "Image runtime requirements")
+  and start the runner (implemented in `files/gha-runner.service`).
 
 The GitHub Actions runner will then listen for jobs, and execute a single job,
 once the job finishes, the runner will shut down the VM. The shutdown can be

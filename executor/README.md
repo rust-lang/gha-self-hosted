@@ -101,9 +101,10 @@ it does not implement auto-reloading.
 ## Runtime behavior of the executor
 
 The executor script will use the GitHub credentials to generate a [just-in-time
-registration token][jit] and pass it to the VM in the `gha-jitconfig` [systemd
-credential]. It will then start the VM with QEMU, and assume the image will
-start a GitHub Actions runner with the token passed into it.
+registration token][jit] and start a secured HTTP server providing that token to
+the future VM. It will then start the VM with QEMU, passing to it the URL of the
+HTTP server in the `gha-jitconfig-url` [systemd credential], and assume the
+image will start a GitHub Actions runner with the token passed into it.
 
 The executor will periodically poll the GitHub API to determine when the runner
 starts executing a job. When that happens, it will start a timer (as defined in
