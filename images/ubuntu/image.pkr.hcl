@@ -30,6 +30,7 @@ build {
       "./scripts/install-packages.sh",
       "./scripts/install-gha-runner.sh",
       "./scripts/install-awscli.sh",
+      "./scripts/install-rust.sh",
       "./scripts/setup-ssh.sh",
       "./scripts/setup-disk-resize.sh",
       "./scripts/setup-grub.sh",
