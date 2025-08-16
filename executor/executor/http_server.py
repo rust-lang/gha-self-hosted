@@ -17,7 +17,6 @@
 
 from .utils import log
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from tempfile import NamedTemporaryFile
 from threading import Thread
 import secrets
 
@@ -73,12 +72,23 @@ class CredentialServer:
         thread.start()
 
     def configure_qemu(self, qemu):
-        # The URL is saved into a file rather than passing it directly as a CLI argument to avoid it
-        # leaking through the command line arguments.
-        self._url_file = NamedTemporaryFile("w")
-        self._url_file.write(
-            f"io.systemd.credential:{self._name}=http://{GUEST_IP}:{self._port}/{self._token}"
+        # Here we are passing the systemd credential containing the URL through the command-line
+        # params. This is not ideal, because the URL contains the access token, and the CLI params
+        # are widely accessible on a Linux system.
+        #
+        # QEMU does support passing the contents of a file through SMBIOS, which would solve the
+        # problem nicely (as long as the file permissions are correctly setup), but unfortunately
+        # that is broken before QEMU 10.0.0 due to a buffer overflow:
+        #
+        #     https://github.com/qemu/qemu/commit/a7a05f5f6a4085afbede315e749b1c67e78c966b
+        #
+        # Ubuntu 24.04 doesn't include QEMU 10 yet, so we have to fall back to passing credentials
+        # through CLI params.
+        #
+        # Note that this is not the *worst* thing security wise, as the URL can only be accessed
+        # once, the VM accesses it as soon as it boots, and someone having access to the host system
+        # can also gain access to the private key used to generate GitHub Actions tokens.
+        qemu.smbios_11.append(
+            f"value=io.systemd.credential:{self._name}="
+            f"http://{GUEST_IP}:{self._port}/{self._token}"
         )
-        self._url_file.flush()
-
-        qemu.smbios_11.append(f"path={self._url_file.name}")
