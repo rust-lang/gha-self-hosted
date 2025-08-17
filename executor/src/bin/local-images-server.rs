@@ -32,7 +32,7 @@ fn prepare_axum(images: Arc<HashMap<String, Image>>) -> Router<()> {
 
     // Generate a different fake commit hash every time the local images server starts. This
     // forces the executor to download fresh images even when they are cached.
-    let mut fake_commit_raw = [0u8; 32];
+    let mut fake_commit_raw = [0u8; 20];
     getrandom::fill(&mut fake_commit_raw).unwrap();
     let fake_commit = hex::encode(fake_commit_raw);
 
