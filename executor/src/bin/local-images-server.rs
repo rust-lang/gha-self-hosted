@@ -87,19 +87,14 @@ struct Image {
 
 impl Image {
     fn from_raw(path: &Path) -> Result<Self, Error> {
-        let compressed = tempfile::NamedTempFile::new()?;
-
-        // First compress to zstd...
-        let mut compressor = Encoder::new(compressed, 1)?;
+        let mut compressor = Encoder::new(NamedTempFile::new()?, 1)?;
         std::io::copy(&mut StdFile::open(path)?, &mut compressor)?;
 
         let mut compressed = compressor.finish()?;
         compressed.seek(SeekFrom::Start(0))?;
 
-        // Then get the hash of the file...
         let mut hasher = Sha256::new();
-        std::io::copy(&mut compressed, &mut hasher)?;
-        compressed.seek(SeekFrom::Start(0))?;
+        std::io::copy(&mut StdFile::open(path)?, &mut hasher)?;
 
         Ok(Image {
             compressed,
