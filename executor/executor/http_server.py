@@ -36,7 +36,8 @@ class CredentialServer:
                 # The nonlocal keyword binds to the variable in the outer scope.
                 nonlocal already_requested
 
-                if self.path.lstrip("/") != token:
+                # Note that the query string is ignored when checking the URL path.
+                if self.path.lstrip("/").split("?")[0] != token:
                     log(
                         f"warning: attempted to retrieve credential {name} with invalid token"
                     )
@@ -73,12 +74,22 @@ class CredentialServer:
         thread.start()
 
     def configure_qemu(self, qemu):
+        # QEMU before version 10 had a buffer overflow when reading SMBIOS parameters from a file,
+        # as they just forgot to put a zero terminator at the end after reading it [1]. That caused
+        # garbage bytes to be appended to the parameter.
+        #
+        # To work around that, we add a query string to the URL. Query strings are ignored by the
+        # server when checking the URL path, so even if QEMU adds garbage at the end of the URL, the
+        # garbage will only affect the query string.
+        #
+        # [1]: https://github.com/qemu/qemu/commit/a7a05f5f6a4085afbede315e749b1c67e78c966b
+        #
+        url = f"http://{GUEST_IP}:{self._port}/{self._token}?avoid-bug-before-qemu-10=1"
+
         # The URL is saved into a file rather than passing it directly as a CLI argument to avoid it
         # leaking through the command line arguments.
         self._url_file = NamedTemporaryFile("w")
-        self._url_file.write(
-            f"io.systemd.credential:{self._name}=http://{GUEST_IP}:{self._port}/{self._token}"
-        )
+        self._url_file.write(f"io.systemd.credential:{self._name}={url}")
         self._url_file.flush()
 
         qemu.smbios_11.append(f"path={self._url_file.name}")
