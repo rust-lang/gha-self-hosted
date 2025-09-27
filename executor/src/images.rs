@@ -3,7 +3,7 @@ use anyhow::{Error, anyhow};
 use reqwest::blocking::Client;
 use sha2::{Digest as _, Sha256};
 use std::fs::{File, remove_dir_all};
-use std::io::{BufReader, BufWriter, Read};
+use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::Duration;
@@ -54,10 +54,7 @@ impl ImagesRetriever {
             eprintln!("downloading image {name} (commit: {commit})");
 
             let resp = self.http.get(&url).send()?.error_for_status()?;
-            std::io::copy(
-                &mut Decoder::new(resp)?,
-                &mut BufWriter::new(File::create(&path)?),
-            )?;
+            std::io::copy(&mut Decoder::new(resp)?, &mut File::create(&path)?)?;
         }
 
         // Check that the image we are running matches the hash the images server expect. This helps

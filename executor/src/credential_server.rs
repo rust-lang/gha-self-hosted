@@ -19,8 +19,10 @@ use anyhow::Error;
 use axum::Router;
 use axum::routing::get;
 use reqwest::StatusCode;
+use secrecy::{ExposeSecret, SecretString};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use subtle::ConstantTimeEq;
 use tempfile::{NamedTempFile, TempPath};
 use tokio::net::TcpListener;
 
@@ -29,7 +31,7 @@ static GUEST_IP: &str = "10.0.2.2";
 
 pub(crate) struct CredentialServer {
     name: String,
-    token: String,
+    token: SecretString,
     port: u16,
 }
 
@@ -37,7 +39,7 @@ impl CredentialServer {
     pub(crate) async fn new(name: &str, credential: &str) -> Result<Self, Error> {
         let mut token_raw = [0u8; 32];
         getrandom::fill(&mut token_raw).unwrap();
-        let token = hex::encode(&token_raw);
+        let token = SecretString::from(hex::encode(&token_raw));
 
         let listener = TcpListener::bind("0.0.0.0:0").await?;
         let port = listener.local_addr()?.port();
@@ -52,7 +54,7 @@ impl CredentialServer {
         })
     }
 
-    pub(crate) fn url(&self, host: &str) -> String {
+    pub(crate) fn url(&self, host: &str) -> SecretString {
         // QEMU before version 10 had a buffer overflow when reading SMBIOS parameters from a file,
         // as they just forgot to put a zero terminator at the end after reading it [1]. That
         // caused garbage bytes to be appended to the parameter.
@@ -65,8 +67,10 @@ impl CredentialServer {
         //
         format!(
             "http://{host}:{}/{}?avoid-bug-before-qemu-10=1",
-            self.port, self.token
+            self.port,
+            self.token.expose_secret()
         )
+        .into()
     }
 
     #[must_use]
@@ -79,7 +83,12 @@ impl CredentialServer {
         let url_file = NamedTempFile::new()?;
         std::fs::write(
             &url_file,
-            format!("io.systemd.credential:{}={}", self.name, self.url(GUEST_IP)).as_bytes(),
+            format!(
+                "io.systemd.credential:{}={}",
+                self.name,
+                self.url(GUEST_IP).expose_secret()
+            )
+            .as_bytes(),
         )?;
 
         qemu.smbios_11.push(Smbios11::Path(url_file.path().into()));
@@ -94,11 +103,11 @@ pub(crate) struct ConfigureQemuGuard {
     _tempfile: TempPath,
 }
 
-fn prepare_axum(name: &str, expected_token: &str, credential: &str) -> Router<()> {
+fn prepare_axum(name: &str, expected_token: &SecretString, credential: &str) -> Router<()> {
     use axum::extract::Path;
 
     let name = name.to_string();
-    let expected_token = expected_token.to_string();
+    let expected_token = expected_token.clone();
     let credential = credential.to_string();
     let already_requested = Arc::new(AtomicBool::new(false));
 
@@ -107,7 +116,11 @@ fn prepare_axum(name: &str, expected_token: &str, credential: &str) -> Router<()
         .route(
             "/{token}",
             get(async move |Path(token): Path<String>| -> _ {
-                if token != expected_token {
+                if token
+                    .as_bytes()
+                    .ct_ne(expected_token.expose_secret().as_bytes())
+                    .into()
+                {
                     eprintln!("warning: attempted to retrieve credential {name} with bad token");
                     (StatusCode::UNAUTHORIZED, "error: invalid token".into())
                 } else if !already_requested.fetch_or(true, Ordering::Relaxed) {

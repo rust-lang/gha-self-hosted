@@ -60,7 +60,7 @@ impl QmpClient {
         let mut buf = Vec::new();
         loop {
             self.reader.read_until(b'\n', &mut buf).await?;
-            if &buf[buf.len() - 2..] == b"\r\n" {
+            if buf.len() >= 2 && &buf[buf.len() - 2..] == b"\r\n" {
                 break;
             }
         }

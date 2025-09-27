@@ -66,7 +66,7 @@ async fn main() -> Result<(), Error> {
     let runner = github
         .create_runner(
             &format!("{}-{}", spec.label, {
-                let mut buf = [0; 6];
+                let mut buf = [0; 8];
                 getrandom::fill(&mut buf)?;
                 buf.iter().map(|b| format!("{b:02x}")).collect::<String>()
             }),
