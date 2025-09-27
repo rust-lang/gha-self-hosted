@@ -118,11 +118,16 @@ jobs:
         env:
           target: ${{ matrix.target.tuple }}
 
+      - name: Rename the binary before upload
+        run: mv executor/target/$target/release/gha-vm /tmp/gha-vm-$target
+        env:
+          target: ${{ matrix.target.tuple }}
+
       - name: Upload the executor as an artifact
         uses: actions/upload-artifact@v4
         with:
           name: gha-vm-${{ matrix.target.tuple }}
-          path: executor/target/${{ matrix.target.tuple }}/release/gha-vm
+          path: /tmp/gha-vm-${{ matrix.target.tuple }}
           if-no-files-found: error
           retention-days: 1
 
