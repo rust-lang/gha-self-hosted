@@ -4,26 +4,6 @@ on:
   merge_group: {}
 
 jobs:
-  lint-python:
-    name: Lint Python code
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout the source code
-        uses: actions/checkout@v4
-
-      - name: Install UV
-        uses: astral-sh/setup-uv@v6
-
-      - name: Check if the executor's UV lock file is up to date
-        run: uv lock --check
-        working-directory: ./executor
-
-      - name: Check formatting
-        run: uv run ruff format --diff
-        working-directory: ./executor
-
   build-vm:
     name: Build image ${{ matrix.image }}-${{ matrix.arch.name }}
     runs-on: ubuntu-24.04
@@ -104,12 +84,55 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  build-executor:
+    name: Build the executor
+    runs-on: ${{ matrix.target.runner }}
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        target:
+          - tuple: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+          - tuple: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Checkout the source code
+        uses: actions/checkout@v4
+
+      - name: Ensure we are using the latest stable
+        run: rustup update stable
+
+      - name: Ensure the target is installed
+        run: rustup target add $target
+        env:
+          target: ${{ matrix.target.tuple }}
+
+      - name: Check formatting
+        run: cargo fmt --check
+        working-directory: ./executor
+
+      - name: Build the binaries
+        run: cargo build --release --target $target
+        working-directory: ./executor
+        env:
+          target: ${{ matrix.target.tuple }}
+
+      - name: Upload the executor as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gha-vm-${{ matrix.target.tuple }}
+          path: executor/target/${{ matrix.target.tuple }}/release/gha-vm
+          if-no-files-found: error
+          retention-days: 1
+
   upload:
-    name: Upload images
+    name: Upload to production
     runs-on: ubuntu-latest
     if: github.event_name == 'merge_group'
     needs:
       - build-vm
+      - build-executor
 
     environment: upload
     permissions:
@@ -121,6 +144,13 @@ jobs:
         with:
           path: images/
           pattern: "*.qcow2.*"
+          merge-multiple: true
+
+      - name: Download built executors
+        uses: actions/download-artifact@v4
+        with:
+          path: gha-vm/
+          pattern: "gha-vm-*"
           merge-multiple: true
 
       - name: Authenticate with AWS
@@ -143,6 +173,20 @@ jobs:
               --if-none-match "*"
           done
 
+      - name: Upload the executor to S3
+        run: |
+          # We cannot use `aws s3 cp` since as far as I can tell it has no way to set the
+          # `if-none-match: *` header. The header is required by the IAM policy to prevent the CI
+          # credentials from overriding existing files.
+          for file in gha-vm/*; do
+            echo "uploading ${file}..."
+            aws s3api put-object \
+              --bucket rust-gha-self-hosted-images \
+              --key "executor/${GITHUB_SHA}/$(basename "${file}")" \
+              --body "${file}" \
+              --if-none-match "*"
+          done
+
       - name: Mark the current commit as the last one
         run: |
           echo "${GITHUB_SHA}" > latest
@@ -158,8 +202,8 @@ jobs:
     permissions: {}
     if: "${{ !cancelled() }}"
     needs:
-      - lint-python
       - build-vm
+      - build-executor
       - upload
     steps:
       - name: Check if all jobs were successful or skipped
