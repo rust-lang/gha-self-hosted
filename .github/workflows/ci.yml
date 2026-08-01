@@ -2,13 +2,15 @@ name: CI
 on:
   pull_request: {}
   merge_group: {}
+  push: {}
 
 jobs:
   build-vm:
     name: Build image ${{ matrix.image }}-${{ matrix.arch.name }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
 
     strategy:
       matrix:
@@ -17,11 +19,6 @@ jobs:
         arch:
           - name: x86_64
             mode: host
-          # We have to build AArch64 in emulated mode: while there is support in GitHUb Actions for
-          # Arm runners, as of May 2025 they don't have nested virtualization enabled, preventing
-          # the use of KVM (required by the "host" mode).
-          - name: aarch64
-            mode: emul
 
     env:
       IMAGE_NAME: ${{ matrix.image }}
@@ -29,177 +26,27 @@ jobs:
       IMAGE_MODE: ${{ matrix.arch.mode }}
     steps:
       - name: Checkout the source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7.0.1
 
       - name: Install Packer
-        uses: hashicorp/setup-packer@76e3039aa951aa4e6efe7e6ee06bc9ceb072142d
+        uses: hashicorp/setup-packer@ce93c3c08a6c2ff2275bf4b54ff0d9a75f6c9789 # v3.4.0
 
-      - name: Install QEMU
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y qemu-system
-
-      # https://github.blog/changelog/2023-02-23-hardware-accelerated-android-virtualization-on-actions-windows-and-linux-larger-hosted-runners/
-      # Snippet authored by gsauthof.
-      - name: Enable KVM usage for the runner user
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules
-          sudo udevadm trigger --name-match=kvm
+      - name: Authenticate with AWS
+        uses: aws-actions/configure-aws-credentials@e6de054238d6b7531b4efff3b6587d9aade6a06c # v6.2.3
+        with:
+          aws-region: us-east-2
+          role-to-assume: arn:aws:iam::442426873467:role/gha-self-hosted-images-upload
 
       - name: Build the image
         run: |
-          cd "images/${IMAGE_NAME}"
-          make "${IMAGE_ARCH}-${IMAGE_MODE}"
+          packer init aws-ubuntu.pkr.hcl
+          packer build -var "ami_name=packer-test-$(openssl rand -hex 15)" aws-ubuntu.pkr.hcl
         env:
           # This token is only needed to bypass the rate limit when downloading Packer plugins. The
           # token only has read-only access to repository contents anyway, so there is no risk
           # passing it to Packer.
+          # FIXME: This is no longer read-only.
           PACKER_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # Compression level 9 seems to be the one where we stop getting improvements, after trying to
-      # compress some images locally in May 2025.
-      - name: Compress the image
-        run: zstd -9 images/${IMAGE_NAME}/build/${IMAGE_NAME}-${IMAGE_ARCH}.qcow2
-
-      - name: Hash the image
-        run: |
-          file="images/${IMAGE_NAME}/build/${IMAGE_NAME}-${IMAGE_ARCH}.qcow2"
-          sha256sum "${file}" | cut -d ' ' -f 1 > "${file}.sha256"
-
-      - name: Upload the image as an artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.image }}-${{ matrix.arch.name }}.qcow2.zst
-          path: images/${{ matrix.image }}/build/${{ matrix.image }}-${{ matrix.arch.name }}.qcow2.zst
-          if-no-files-found: error
-          retention-days: 1
-          compression-level: 0
-
-      - name: Upload the hash as an artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.image }}-${{ matrix.arch.name }}.qcow2.sha256
-          path: images/${{ matrix.image }}/build/${{ matrix.image }}-${{ matrix.arch.name }}.qcow2.sha256
-          if-no-files-found: error
-          retention-days: 1
-
-  build-executor:
-    name: Build the executor
-    runs-on: ${{ matrix.target.runner }}
-    permissions:
-      contents: read
-    strategy:
-      matrix:
-        target:
-          - tuple: x86_64-unknown-linux-gnu
-            runner: ubuntu-24.04
-          - tuple: aarch64-unknown-linux-gnu
-            runner: ubuntu-24.04-arm
-    steps:
-      - name: Checkout the source code
-        uses: actions/checkout@v4
-
-      - name: Ensure we are using the latest stable
-        run: rustup update stable
-
-      - name: Ensure the target is installed
-        run: rustup target add $target
-        env:
-          target: ${{ matrix.target.tuple }}
-
-      - name: Check formatting
-        run: cargo fmt --check
-        working-directory: ./executor
-
-      - name: Build the binaries
-        run: cargo build --release --target $target
-        working-directory: ./executor
-        env:
-          target: ${{ matrix.target.tuple }}
-
-      - name: Rename the binary before upload
-        run: mv executor/target/$target/release/gha-vm /tmp/gha-vm-$target
-        env:
-          target: ${{ matrix.target.tuple }}
-
-      - name: Upload the executor as an artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gha-vm-${{ matrix.target.tuple }}
-          path: /tmp/gha-vm-${{ matrix.target.tuple }}
-          if-no-files-found: error
-          retention-days: 1
-
-  upload:
-    name: Upload to production
-    runs-on: ubuntu-latest
-    if: github.event_name == 'merge_group'
-    needs:
-      - build-vm
-      - build-executor
-
-    environment: upload
-    permissions:
-      id-token: write
-
-    steps:
-      - name: Download built images
-        uses: actions/download-artifact@v4
-        with:
-          path: images/
-          pattern: "*.qcow2.*"
-          merge-multiple: true
-
-      - name: Download built executors
-        uses: actions/download-artifact@v4
-        with:
-          path: gha-vm/
-          pattern: "gha-vm-*"
-          merge-multiple: true
-
-      - name: Authenticate with AWS
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-region: us-west-1
-          role-to-assume: arn:aws:iam::890664054962:role/gha-self-hosted-images-upload
-
-      - name: Upload images to S3
-        run: |
-          # We cannot use `aws s3 cp` since as far as I can tell it has no way to set the
-          # `if-none-match: *` header. The header is required by the IAM policy to prevent the CI
-          # credentials from overriding existing files.
-          for file in images/*; do
-            echo "uploading ${file}..."
-            aws s3api put-object \
-              --bucket rust-gha-self-hosted-images \
-              --key "images/${GITHUB_SHA}/$(basename "${file}")" \
-              --body "${file}" \
-              --if-none-match "*"
-          done
-
-      - name: Upload the executor to S3
-        run: |
-          # We cannot use `aws s3 cp` since as far as I can tell it has no way to set the
-          # `if-none-match: *` header. The header is required by the IAM policy to prevent the CI
-          # credentials from overriding existing files.
-          for file in gha-vm/*; do
-            echo "uploading ${file}..."
-            aws s3api put-object \
-              --bucket rust-gha-self-hosted-images \
-              --key "executor/${GITHUB_SHA}/$(basename "${file}")" \
-              --body "${file}" \
-              --if-none-match "*"
-          done
-
-      - name: Mark the current commit as the last one
-        run: |
-          echo "${GITHUB_SHA}" > latest
-          aws s3api put-object \
-            --bucket rust-gha-self-hosted-images \
-            --key latest \
-            --body latest \
-            --content-type text/plain
 
   finish:
     name: CI finished
@@ -208,8 +55,6 @@ jobs:
     if: "${{ !cancelled() }}"
     needs:
       - build-vm
-      - build-executor
-      - upload
     steps:
       - name: Check if all jobs were successful or skipped
         run: echo "${NEEDS}" | jq --exit-status 'all(.result == "success" or .result == "skipped")'

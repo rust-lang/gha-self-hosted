@@ -10,9 +10,6 @@ The contents of this repository are released under either the MIT or the Apache
 
 ## Deployment and operations
 
-The production servers will pull this repository every 15 minutes, and if a
-change in the `images/` directory was done images will also be rebuilt. Check
-out [the documentation][forge] on the forge for instructions on how to operate
-the production deployment.
+TODO
 
 [forge]: https://forge.rust-lang.org/infra/docs/gha-self-hosted.html
